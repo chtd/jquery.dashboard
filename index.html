@@ -54,8 +54,14 @@
                     }).data('gridster'),
                     newWidget = function mkWidget(w, h) {
                         var ww = w || 5,
-                            wh = h || 5;
-                        dashboard.add_widget('<li class="db-widget"></li>', ww, wh);
+                            wh = h || 5,
+                            imgs = ['http://pjnicholson.com/mjcomapp/excel_titleaddedtochart.gif',
+                                    'http://spjsblog.com/wp-content/uploads/2013/09/spjs-charts-v4-chart1.png',
+                                    'http://www.amrein.com/pic/appli/SimpleChartAvg.gif'
+                            ],
+                            img = '<img src="' + imgs[_.random(0, imgs.length - 1)] + '">';
+
+                        dashboard.add_widget('<li class="db-widget">' + img + '</li>', ww, wh);
                     };
 
                 $('.db-add-element').on('click', function addElement(event){

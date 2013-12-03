@@ -50,3 +50,7 @@
     background-color: #eee;
     box-shadow: 0 0 2px #666;
 }
+.db-widget img {
+    width: 100%;
+    height: 100%;
+}
