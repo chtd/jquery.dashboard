@@ -12,6 +12,7 @@
  * #8b9 - grid selection border
  * #bec = rgb(187, 238, 204) - grid selection background
  * #fff - selected cell color
+ * #fffddc - block background color
  *
  */
 
@@ -41,4 +42,8 @@
     border: 1px solid #8b9;
     background-color: #bec;
     background-color: rgba(187, 238, 204, .35);
+}
+.db-block {
+    position: absolute;
+    background-color: #fffddc;
 }

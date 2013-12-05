@@ -33,7 +33,7 @@
         },
         defaults = {
             grid: [20, 15],
-            gutter: [5, 5]
+            gutter: [10, 10]
         };
 
     function getNextCid() {
@@ -86,6 +86,9 @@
         },
         isOccupied: function isOccupied() {
             return this.getState() === states.occupied;
+        },
+        getPos: function getPosition() {
+            return {col: this.column, row: this.row};
         },
         attachDropEvents: function attachDropEvents() {
             var this_ = this;
@@ -191,6 +194,39 @@
             });
             return selected;
         },
+        setOccupied: function setOccupied(cells) {
+            $.each(cells, function setState(idx, cell) {
+                cell.setState(states.occupied);
+            });
+        },
+        makeBlock: function makeBlock(cells) {
+            var top_,
+                left,
+                bottom,
+                right,
+                evt = new $.Event('makeblock.dashboard');
+
+            $.each(cells, function getPos(idx, cell) {
+                var pos = cell.getPos();
+                if (idx === 0) {
+                    top_ = bottom = pos.row;
+                    left = right = pos.col;
+                } else {
+                    top_ = Math.min(top_, pos.row);
+                    bottom = Math.max(bottom, pos.row);
+                    left = Math.min(left, pos.col);
+                    right = Math.max(right, pos.col);
+                }
+            });
+
+            evt.block = {
+                top_: top_,
+                left: left,
+                bottom: bottom,
+                right: right
+            };
+            this.$el.trigger(evt);
+        },
         attachDragEvents: function attachDragEvents() {
             var this_ = this;
 
@@ -208,8 +244,10 @@
             return $('<div class="db-grid-selection" />').appendTo(document.body);
         },
         onDragEnd: function onDragEnd(ev, dd) {
+            var cells = this.getSelected();
             $(dd.proxy).remove();
-            console.log(this.getSelected());
+            this.makeBlock(cells);
+            this.setOccupied(cells);
         },
         onDrag: function onDrag(ev, dd) {
             $(dd.proxy).css({
@@ -218,6 +256,51 @@
                 height: Math.abs(ev.pageY - dd.startY),
                 width: Math.abs(ev.pageX - dd.startX)
             });
+        }
+    });
+
+
+    // Dashboard block
+    function Block(options) {
+        this.top_ = options.top_;
+        this.left = options.left;
+        this.bottom = options.bottom;
+        this.right = options.right;
+
+        this.blockWidth = options.block.width;
+        this.blockHeight = options.block.height;
+
+        this.gutterWidth = options.gutter.width;
+        this.gutterHeight = options.gutter.height;
+
+        this.offsetTop = options.offset.top_;
+        this.offsetLeft = options.offset.left;
+
+        this.init();
+    }
+
+    $.extend(Block.prototype, {
+        init: function initBlock() {
+            var el = document.createElement('div'),
+                bw = this.blockWidth,
+                bh = this.blockHeight,
+                gw = this.gutterWidth,
+                gh = this.gutterHeight,
+                top_ = (bh * this.top_) + parseInt(gh / 2, 10) + this.offsetTop,
+                left = (bw * this.left) + parseInt(gw / 2, 10) + this.offsetLeft,
+                width = bw * (this.right - this.left + 1) - gw,
+                height = bh * (this.bottom - this.top_ + 1) - gh;
+
+            this.cid = getNextCid();
+
+            this.el = el;
+            this.$el = $(el);
+            this.el.style.top = top_ + 'px';
+            this.el.style.left = left + 'px';
+            this.el.style.width = width + 'px';
+            this.el.style.height = height + 'px';
+
+            this.el.classList.add('db-block');
         }
     });
 
@@ -240,6 +323,7 @@
         _calcDimensions: function calcDimensions() {
             var $el = this.$element,
                 grid = this.options.grid,
+                gutter = this.options.gutter,
                 width = $el.width(),
                 height = $el.height(),
                 top_ = parseInt($el.css('padding-top'), 10),
@@ -267,6 +351,9 @@
             this._blockWidth = blockWidth;
             this._blockHeight = blockHeight;
 
+            this._gutterWidth = gutter[0];
+            this._gutterHeight = gutter[1];
+
             return this;
         },
         _makeGrid: function makeGrid() {
@@ -284,6 +371,12 @@
 
             return this;
         },
+        _attachHandlers: function attachHandlers() {
+            var this_ = this;
+            this._grid.$el.on('makeblock.dashboard', function callMakeBlock() {
+                this_.makeBlock.apply(this_, arguments);
+            });
+        },
         init: function initPlugin() {
             // Place initialization logic here
             // You already have access to the DOM element and the options via the instance,
@@ -299,6 +392,8 @@
                 $.error('options.gutter must be an Array of 2 elements!');
             }
 
+            this.children = [];
+
             this.initialize();
             this.invalidate();
 
@@ -307,11 +402,14 @@
         destroy: function destroyPlugin() {
             var el = this.element,
                 children = this._children;
+
+            this._grid.destroy();
             this.$element.data(dataPlugin, null);
             this.element = null;
             this.options = null;
             this._defaults = null;
             this._children = null;
+            this._grid = null;
 
             $.each(children, function iterChildren(k, v) {
                 v.child.data(dataChild, null);
@@ -324,6 +422,7 @@
 
             this._calcDimensions();
             this._makeGrid();
+            this._attachHandlers();
 
             return this;
         },
@@ -346,6 +445,18 @@
             });
 
             return this;
+        },
+        makeBlock: function makeBlock(event) {
+            var block = {width: this._blockWidth, height: this._blockHeight},
+                gutter = {width: this._gutterWidth, height: this._gutterHeight},
+                offset = {top_: this._top, left: this._left},
+                opts = $.extend({}, {block: block, gutter: gutter, offset: offset}, event.block),
+                instance;
+
+            instance = new Block(opts);
+
+            this.children.push(instance);
+            this.$element.append(instance.el);
         }
     };
 
