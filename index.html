@@ -17,7 +17,7 @@
         <!-- Font Awesome-->
         <link href="http://netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css" rel="stylesheet">
         <!-- plugin styles -->
-        <link rel="stylesheet" href="jquery.gridster.css">
+        <link rel="stylesheet" href="jquery.dashboard.css">
         <!-- app styles -->
         <link rel="stylesheet" href="dashboard.css">
     </head>
@@ -29,8 +29,7 @@
                 <button class="btn btn-default db-menu-item db-add-element"><i class="fa fa-plus fa-2x fa-fw"></i></button>
                 <button class="btn btn-default db-menu-item db-clear-elements"><i class="fa fa-trash-o fa-2x fa-fw"></i></button>
             </nav>
-            <div class="db-elements gridster">
-                <ul></ul>
+            <div class="db-elements">
             </div>
         </div>
 
@@ -42,47 +41,15 @@
         <!-- Bootstrap -->
         <script src="http://netdna.bootstrapcdn.com/bootstrap/3.0.2/js/bootstrap.min.js"></script>
         <!-- plugin -->
-        <script src="jquery.gridster.js"></script>
+        <script src="jquery.mousewheel.js"></script>
+        <script src="jquery.event.drag.js"></script>
+        <script src="jquery.event.drop.js"></script>
+        <script src="jquery.dashboard.js"></script>
         <!-- app -->
         <script>
             $(function onReady() {
+                $('.db-elements').dashboard({blockSize: [20, 15]});
 
-                var dashboard = $(".db-elements ul").gridster({
-                        widget_margins: [5, 5],
-                        widget_base_dimensions: [20, 20],
-                        resize: {enabled: true}
-                    }).data('gridster'),
-                    newWidget = function mkWidget(w, h) {
-                        var ww = w || 5,
-                            wh = h || 5,
-                            imgs = ['http://pjnicholson.com/mjcomapp/excel_titleaddedtochart.gif',
-                                    'http://spjsblog.com/wp-content/uploads/2013/09/spjs-charts-v4-chart1.png',
-                                    'http://www.amrein.com/pic/appli/SimpleChartAvg.gif'
-                            ],
-                            img = '<img src="' + imgs[_.random(0, imgs.length - 1)] + '">';
-
-                        dashboard.add_widget('<li class="db-widget">' + img + '</li>', ww, wh);
-                    };
-
-                $('.db-add-element').on('click', function addElement(event){
-                    event.preventDefault();
-                    newWidget();
-                });
-
-                $('.db-clear-elements').on('click', function clearElements(event){
-                    event.preventDefault();
-                    dashboard.remove_all_widgets();
-                });
-
-                $('.db-elements ul').delegate('li', 'dblclick', function rmElement(event) {
-                    event.preventDefault();
-                    dashboard.remove_widget($(this));
-                });
-
-                newWidget(14, 6);
-                newWidget(26, 12);
-                newWidget(14, 6);
-                newWidget(40, 8);
             });
 
         </script>
