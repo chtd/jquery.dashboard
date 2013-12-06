@@ -26,9 +26,9 @@
         <div class="db-body">
             <nav class="db-menu">
                 <button class="btn btn-default db-menu-item db-load-dashboard"><i class="fa fa-bars fa-2x fa-fw"></i></button>
+                <button class="btn btn-default db-menu-item db-toggle-grid"><i class="fa fa-th fa-2x fa-fw"></i></button>
                 <button class="btn btn-default db-menu-item db-add-element"><i class="fa fa-plus fa-2x fa-fw"></i></button>
                 <button class="btn btn-default db-menu-item db-clear-elements"><i class="fa fa-trash-o fa-2x fa-fw"></i></button>
-                <button class="btn btn-default db-menu-item db-toggle-grid"><i class="fa fa-th fa-2x fa-fw"></i></button>
             </nav>
             <div class="db-elements">
             </div>
@@ -51,11 +51,15 @@
             $(function onReady() {
                 var $db = $('.db-elements');
 
-                $db.dashboard({blockSize: [20, 15]});
+                $db.dashboard({blockSize: [20, 15], showGrid: true});
 
-                $('.db-menu').delegate('.db-toggle-grid', 'click', function toggleGrid(event) {
-                    $db.dashboard('toggleGrid');
-                });
+                $('.db-menu').
+                    delegate('.db-toggle-grid', 'click', function toggleGrid(event) {
+                        $db.dashboard('toggleGrid');
+                    }).
+                    delegate('.db-clear-elements', 'click', function clearDashboard(event) {
+                        $db.dashboard('clear');
+                    });
 
             });
 

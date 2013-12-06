@@ -54,4 +54,5 @@
 .db-block {
     position: absolute;
     background-color: #fffddc;
+    box-shadow: 0 0 4px #999;
 }

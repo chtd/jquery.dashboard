@@ -33,6 +33,7 @@
             occupied: 2
         },
         defaults = {
+            showGrid: false,
             grid: [20, 15],
             gutter: [10, 10]
         };
@@ -88,6 +89,15 @@
         isOccupied: function isOccupied() {
             return this.getState() === states.occupied;
         },
+        setFree: function setFree() {
+            return this.setState(states.free);
+        },
+        setSelected: function setSelected() {
+            return this.setState(states.selected);
+        },
+        setOccupied: function setOccupied() {
+            return this.setState(states.occupied);
+        },
         getPos: function getPosition() {
             return {col: this.column, row: this.row};
         },
@@ -105,13 +115,17 @@
             });
         },
         onDropStart: function onDropStart(ev, dd) {
-            this.el.classList.add('db-grid-cell-selected');
-            this.setState(states.selected);
+            if (this.isFree()) {
+                this.el.classList.add('db-grid-cell-selected');
+            } else {
+            return false;
+            }
         },
         onDropEnd: function onDropEnd(ev, dd) {
             this.el.classList.remove('db-grid-cell-selected');
         },
         onDrop: function onDrop(ev, dd) {
+            this.setSelected();
         }
     });
 
@@ -126,6 +140,7 @@
         this._height = options.numRows * options.blockHeight;
         this._top = options.top_;
         this._left = options.left;
+        this._showGrid = options.showGrid;
 
         this.init();
     }
@@ -147,6 +162,9 @@
             this.$el = $(el);
 
             el.classList.add('db-grid');
+            if (this._showGrid) {
+                el.classList.add('db-grid-bordered');
+            }
             el.style.top = this._top + 'px';
             el.style.left = this._left + 'px';
             el.style.width = this._width + 'px';
@@ -246,9 +264,9 @@
         },
         onDragEnd: function onDragEnd(ev, dd) {
             var cells = this.getSelected();
-            $(dd.proxy).remove();
             this.makeBlock(cells);
             this.setOccupied(cells);
+            $(dd.proxy).remove();
         },
         onDrag: function onDrag(ev, dd) {
             $(dd.proxy).css({
@@ -260,6 +278,12 @@
         },
         toggleGrid: function toggleGrid() {
             this.$el.toggleClass('db-grid-bordered');
+            return this;
+        },
+        clearGrid: function clearGrid() {
+            $.each(this.children, function makeFree(k, child) {
+                child.setFree();
+            });
             return this;
         }
     });
@@ -306,6 +330,11 @@
             this.el.style.height = height + 'px';
 
             this.el.classList.add('db-block');
+        },
+        destroy: function destroyBlock() {
+            this.$el.remove();
+            this.$el = null;
+            this.el = null;
         }
     });
 
@@ -319,7 +348,6 @@
 
         this._defaults = defaults;
         this._name = pluginName;
-        this._children = {};
 
         this.init();
     }
@@ -363,6 +391,7 @@
         },
         _makeGrid: function makeGrid() {
             var opts = {
+                showGrid: this.options.showGrid,
                 numCols: this._numCols,
                 numRows: this._numRows,
                 blockWidth: this._blockWidth,
@@ -406,7 +435,7 @@
         },
         destroy: function destroyPlugin() {
             var el = this.element,
-                children = this._children;
+                children = this.children;
 
             this._grid.destroy();
             this.$element.data(dataPlugin, null);
@@ -465,6 +494,14 @@
         },
         toggleGrid: function toggleGrid() {
             this._grid.toggleGrid();
+            return this;
+        },
+        clear: function cleanDashboard() {
+            $.each(this.children, function iterChildren(k, v) {
+                v.destroy();
+            });
+            this._grid.clearGrid();
+            this.children = [];
             return this;
         }
     };
