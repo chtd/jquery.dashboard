@@ -27,6 +27,7 @@
         dataPlugin = 'plugin_' + pluginName,
         dataChild = 'child_' + pluginName,
         cid = 0,
+        zIndex = 0,
         states = {
             free: 0,
             selected: 1,
@@ -115,10 +116,10 @@
             });
         },
         onDropStart: function onDropStart(ev, dd) {
-            if (this.isFree()) {
-                this.el.classList.add('db-grid-cell-selected');
+            if (!this.isFree() || dd.isBlock) {
+                return false;
             } else {
-            return false;
+                this.el.classList.add('db-grid-cell-selected');
             }
         },
         onDropEnd: function onDropEnd(ev, dd) {
@@ -215,7 +216,12 @@
         },
         setOccupied: function setOccupied(cells) {
             $.each(cells, function setState(idx, cell) {
-                cell.setState(states.occupied);
+                cell.setOccupied();
+            });
+        },
+        setFree: function setOccupied(cells) {
+            $.each(cells, function setState(idx, cell) {
+                cell.setFree();
             });
         },
         makeBlock: function makeBlock(cells) {
@@ -265,7 +271,8 @@
         onDragEnd: function onDragEnd(ev, dd) {
             var cells = this.getSelected();
             this.makeBlock(cells);
-            this.setOccupied(cells);
+            //this.setOccupied(cells);
+            this.setFree(cells);
             $(dd.proxy).remove();
         },
         onDrag: function onDrag(ev, dd) {
@@ -305,6 +312,12 @@
         this.offsetTop = options.offset.top_;
         this.offsetLeft = options.offset.left;
 
+        this.parentOffsetTop = options.offset.parentTop;
+        this.parentOffsetLeft = options.offset.parentLeft;
+
+        this.numCols = options.grid.cols;
+        this.numRows = options.grid.rows;
+
         this.init();
     }
 
@@ -332,6 +345,7 @@
             this.el.style.left = left + 'px';
             this.el.style.width = width + 'px';
             this.el.style.height = height + 'px';
+            this.el.style.zIndex = zIndex++;
 
             this.attachHandlers();
         },
@@ -344,6 +358,13 @@
                 on('mouseleave', function callOnMouseLeave() {
                     this_.onMouseLeave.apply(this_, arguments);
                 });
+
+            this.$el.drag('start', function callOnDragStart() {
+                    this_.onDragStart.apply(this_, arguments);
+                }, {drop: false, relative: true}).
+                drag(function callOnDrag() {
+                    this_.onDrag.apply(this_, arguments);
+                });
             return this;
         },
         detachHandlers: function detachHandlers() {
@@ -355,6 +376,24 @@
         },
         onMouseLeave: function onMouseLeave(event) {
             this.removeResizeHandlers();
+        },
+        onDragStart: function onDragStart(ev, dd) {
+            var $el = this.$el;
+
+            this.el.style.zIndex = zIndex++;
+            dd.limit = {
+                top: this.offsetTop,
+                left: this.offsetLeft,
+                bottom: this.offsetTop + this.numRows * this.blockHeight - $el.outerHeight(),
+                right: this.offsetLeft + this.numCols * this.blockWidth - $el.outerWidth()
+            };
+            dd.isBlock = true;
+        },
+        onDrag: function onDrag(ev, dd) {
+            this.$el.css({
+                top: Math.round(Math.min(dd.limit.bottom, Math.max(dd.limit.top, dd.offsetY)) / this.blockHeight) * this.blockHeight + this.gutterHeight,
+                left: Math.round(Math.min(dd.limit.right, Math.max(dd.limit.left, dd.offsetX)) / this.blockWidth) * this.blockWidth + this.gutterWidth
+            });
         },
         makeResizeHandlers: function makeResizeHandlers() {
             var rh = this._resizeHandlers,
@@ -410,6 +449,7 @@
                 height = $el.height(),
                 top_ = parseInt($el.css('padding-top'), 10),
                 left_ = parseInt($el.css('padding-left'), 10),
+                offset = $el.offset(),
                 numCols = grid[0],
                 numRows = grid[1],
                 blockWidth = parseInt(width / numCols, 10),
@@ -429,6 +469,7 @@
             this._height = height;
             this._top = top_;
             this._left = left_;
+            this._offset = offset;
 
             this._blockWidth = blockWidth;
             this._blockHeight = blockHeight;
@@ -532,8 +573,9 @@
         makeBlock: function makeBlock(event) {
             var block = {width: this._blockWidth, height: this._blockHeight},
                 gutter = {width: this._gutterWidth, height: this._gutterHeight},
-                offset = {top_: this._top, left: this._left},
-                opts = $.extend({}, {block: block, gutter: gutter, offset: offset}, event.block),
+                offset = {top_: this._top, left: this._left, parentTop: this._offset.top, parentLeft: this._offset.left},
+                grid = {cols: this._numCols, rows: this._numRows},
+                opts = $.extend({}, {block: block, gutter: gutter, offset: offset, grid: grid}, event.block),
                 instance;
 
             instance = new Block(opts);
