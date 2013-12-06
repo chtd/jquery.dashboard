@@ -18,15 +18,23 @@
 
 .db-grid {
     position: absolute;
-    border-top: 1px dashed #999;
-    border-left: 1px dashed #999;
+    border-top: 1px dashed transparent;
+    border-left: 1px dashed transparent;
+}
+.db-grid-bordered {
+    border-top-color: #999;
+    border-left-color: #999;
+}
+.db-grid-bordered .db-grid-cell {
+    border-bottom-color: #999;
+    border-right-color: #999;
 }
 .db-grid-cell {
     position: absolute;
     box-sizing: border-box;
     -moz-box-sizing: border-box;
-    border-bottom: 1px dashed #999;
-    border-right: 1px dashed #999;
+    border-bottom: 1px dashed transparent;
+    border-right: 1px dashed transparent;
 }
 .db-grid-cell-selected {
     background-color: #fff;

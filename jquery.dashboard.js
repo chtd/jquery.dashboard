@@ -1,7 +1,8 @@
 /*
  *  Project: jquery.dashboard.js
  *  Description: jQuery dashboard
- *  Author: Chtd LLC.
+ *  Author: Yuri Egorov <yuri.egorov@chtd.ru>
+ *  Copyright: Chtd LLC.
  *  License: MIT (?)
  */
 
@@ -256,6 +257,10 @@
                 height: Math.abs(ev.pageY - dd.startY),
                 width: Math.abs(ev.pageX - dd.startX)
             });
+        },
+        toggleGrid: function toggleGrid() {
+            this.$el.toggleClass('db-grid-bordered');
+            return this;
         }
     });
 
@@ -457,6 +462,10 @@
 
             this.children.push(instance);
             this.$element.append(instance.el);
+        },
+        toggleGrid: function toggleGrid() {
+            this._grid.toggleGrid();
+            return this;
         }
     };
 
