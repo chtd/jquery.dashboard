@@ -321,17 +321,66 @@
                 height = bh * (this.bottom - this.top_ + 1) - gh;
 
             this.cid = getNextCid();
+            this._resizeHandlers = [];
 
             this.el = el;
             this.$el = $(el);
+
+            this.el.classList.add('db-block');
+
             this.el.style.top = top_ + 'px';
             this.el.style.left = left + 'px';
             this.el.style.width = width + 'px';
             this.el.style.height = height + 'px';
 
-            this.el.classList.add('db-block');
+            this.attachHandlers();
+        },
+        attachHandlers: function attachHandlers() {
+            var this_ = this;
+            this.$el.
+                on('mouseenter', function callOnMouseEnter() {
+                    this_.onMouseEnter.apply(this_, arguments);
+                }).
+                on('mouseleave', function callOnMouseLeave() {
+                    this_.onMouseLeave.apply(this_, arguments);
+                });
+            return this;
+        },
+        detachHandlers: function detachHandlers() {
+            this.$el.off();
+            return this;
+        },
+        onMouseEnter: function onMouseEnter(event) {
+            this.makeResizeHandlers();
+        },
+        onMouseLeave: function onMouseLeave(event) {
+            this.removeResizeHandlers();
+        },
+        makeResizeHandlers: function makeResizeHandlers() {
+            var rh = this._resizeHandlers,
+                frag = document.createDocumentFragment(),
+                handlers = ['w', 'e', 'n', 's', 'nw', 'ne', 'sw', 'se'],
+                div;
+
+            $.each(handlers, function mkHandler(k, place) {
+                div = document.createElement('div');
+                div.classList.add('db-block-resizer');
+                div.classList.add('db-block-resizer-' + place);
+                rh.push(div);
+                frag.appendChild(div);
+            });
+            this.el.appendChild(frag);
+
+            return this;
+        },
+        removeResizeHandlers: function removeResizeHandlers() {
+            $.each(this._resizeHandlers, function rmHandler(k, div) {
+                div.remove();
+            });
+            this._resizeHandlers = [];
         },
         destroy: function destroyBlock() {
+            this.detachHandlers();
             this.$el.remove();
             this.$el = null;
             this.el = null;
