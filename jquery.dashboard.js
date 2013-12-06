@@ -347,6 +347,13 @@
             this.el.style.height = height + 'px';
             this.el.style.zIndex = zIndex++;
 
+            this._elPos = {
+                width: width,
+                height: height,
+                top: top_,
+                left: left
+            };
+
             this.attachHandlers();
         },
         attachHandlers: function attachHandlers() {
@@ -360,7 +367,7 @@
                 });
 
             this.$el.drag('start', function callOnDragStart() {
-                    this_.onDragStart.apply(this_, arguments);
+                    return this_.onDragStart.apply(this_, arguments);
                 }, {drop: false, relative: true}).
                 drag(function callOnDrag() {
                     this_.onDrag.apply(this_, arguments);
@@ -377,23 +384,28 @@
         onMouseLeave: function onMouseLeave(event) {
             this.removeResizeHandlers();
         },
-        onDragStart: function onDragStart(ev, dd) {
-            var $el = this.$el;
-
-            this.el.style.zIndex = zIndex++;
-            dd.limit = {
+        getLimits: function getLimits() {
+            return {
                 top: this.offsetTop,
                 left: this.offsetLeft,
-                bottom: this.offsetTop + this.numRows * this.blockHeight - $el.outerHeight(),
-                right: this.offsetLeft + this.numCols * this.blockWidth - $el.outerWidth()
+                bottom: this.offsetTop + this.numRows * this.blockHeight - this.$el.outerHeight(),
+                right: this.offsetLeft + this.numCols * this.blockWidth - this.$el.outerWidth()
             };
+        },
+        onDragStart: function onDragStart(ev, dd) {
+            this.el.style.zIndex = zIndex++;
+
+            dd.limit = this.getLimits();
             dd.isBlock = true;
         },
         onDrag: function onDrag(ev, dd) {
-            this.$el.css({
+            var props = {
                 top: Math.round(Math.min(dd.limit.bottom, Math.max(dd.limit.top, dd.offsetY)) / this.blockHeight) * this.blockHeight + this.gutterHeight,
                 left: Math.round(Math.min(dd.limit.right, Math.max(dd.limit.left, dd.offsetX)) / this.blockWidth) * this.blockWidth + this.gutterWidth
-            });
+            };
+            this.$el.css(props);
+            this._elPos.top = props.top;
+            this._elPos.left = props.left;
         },
         makeResizeHandlers: function makeResizeHandlers() {
             var rh = this._resizeHandlers,
@@ -405,10 +417,13 @@
                 div = document.createElement('div');
                 div.classList.add('db-block-resizer');
                 div.classList.add('db-block-resizer-' + place);
+                div.setAttribute('data-direction', place);
                 rh.push(div);
                 frag.appendChild(div);
             });
             this.el.appendChild(frag);
+
+            this.attachResizeHandlersEvents();
 
             return this;
         },
@@ -417,6 +432,72 @@
                 div.remove();
             });
             this._resizeHandlers = [];
+        },
+        attachResizeHandlersEvents: function attachResizeHandler() {
+            var this_ = this;
+            this.$el.find('.db-block-resizer').drag('start', function callOnResizeStart() {
+                return this_.onResizeStart.apply(this_, arguments);
+            }, {drop: false}).
+            drag('end', function callOnDragEnd() {
+                this_.onResizeEnd.apply(this_, arguments);
+            }).
+            drag(function callOnResize() {
+                this_.onResize.apply(this_, arguments);
+            });
+        },
+        onResizeStart: function onResizeStart(ev, dd) {
+            var target = ev.target,
+                direction = target.getAttribute('data-direction');
+
+            dd.resizeDirection = direction;
+        },
+        onResize: function onResize(ev, dd) {
+            var direction = dd.resizeDirection,
+                minWidth = this.blockWidth - this.gutterWidth,
+                minHeight = this.blockHeight - this.gutterHeight,
+                originalWidth = this._elPos.width,
+                originalHeight = this._elPos.height,
+                left = this._elPos.left,
+                top_ = this._elPos.top,
+                props = {},
+                limits = this.getLimits(),
+                blocksX = Math.round(dd.deltaX / this.blockWidth) * this.blockWidth,
+                blocksY = Math.round(dd.deltaY / this.blockHeight) * this.blockHeight;
+
+            if (direction.indexOf('e') > -1){
+                props.width = Math.max(minWidth, originalWidth + blocksX);
+            }
+            if (direction.indexOf('s') > -1){
+                props.height = Math.max(minHeight, originalHeight + blocksY);
+            }
+            if (direction.indexOf('w') > -1){
+                props.width = Math.max(minWidth, originalWidth - blocksX);
+                props.left = left + originalWidth - props.width;
+                if (props.left < limits.left) {
+                    props.left = limits.left;
+                }
+            }
+            if (direction.indexOf('n') > -1){
+                props.height = Math.max(minHeight, originalHeight - blocksY);
+                props.top = top_ + originalHeight - props.height;
+                if (props.top < limits.top) {
+                    props.top = limits.top;
+                }
+            }
+            this.$el.css(props);
+        },
+        onResizeEnd: function onResizeEnd(ev, dd) {
+            var $el = this.$el,
+                w = $el.width(),
+                h = $el.height(),
+                pos = $el.position();
+
+            this._elPos = {
+                left: pos.left,
+                top: pos.top,
+                width: w,
+                height: h
+            };
         },
         destroy: function destroyBlock() {
             this.detachHandlers();
