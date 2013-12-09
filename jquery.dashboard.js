@@ -63,7 +63,7 @@
             this.el = el;
             this.$el = $(el);
 
-            el.classList.add('db-grid-cell');
+            el.className += ' db-grid-cell';
             el.style.width = this.width + 'px';
             el.style.height = this.height + 'px';
             el.style.left = this.column * this.width + 'px';
@@ -119,11 +119,11 @@
             if (!this.isFree() || dd.isBlock) {
                 return false;
             } else {
-                this.el.classList.add('db-grid-cell-selected');
+                this.el.className += ' db-grid-cell-selected';
             }
         },
         onDropEnd: function onDropEnd(ev, dd) {
-            this.el.classList.remove('db-grid-cell-selected');
+            this.el.className = this.el.className.replace('db-grid-cell-selected', '');
         },
         onDrop: function onDrop(ev, dd) {
             this.setSelected();
@@ -162,9 +162,9 @@
             this.el = el;
             this.$el = $(el);
 
-            el.classList.add('db-grid');
+            el.className += ' db-grid';
             if (this._showGrid) {
-                el.classList.add('db-grid-bordered');
+                el.className += ' db-grid-bordered';
             }
             el.style.top = this._top + 'px';
             el.style.left = this._left + 'px';
@@ -339,7 +339,7 @@
             this.el = el;
             this.$el = $(el);
 
-            this.el.classList.add('db-block');
+            this.el.className += ' db-block';
 
             this.el.style.top = top_ + 'px';
             this.el.style.left = left + 'px';
@@ -415,8 +415,8 @@
 
             $.each(handlers, function mkHandler(k, place) {
                 div = document.createElement('div');
-                div.classList.add('db-block-resizer');
-                div.classList.add('db-block-resizer-' + place);
+                div.className += ' db-block-resizer';
+                div.className += ' db-block-resizer-' + place;
                 div.setAttribute('data-direction', place);
                 rh.push(div);
                 frag.appendChild(div);
