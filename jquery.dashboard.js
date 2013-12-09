@@ -428,8 +428,9 @@
             return this;
         },
         removeResizeHandlers: function removeResizeHandlers() {
+            var el = this.el;
             $.each(this._resizeHandlers, function rmHandler(k, div) {
-                div.remove();
+                el.removeChild(div);
             });
             this._resizeHandlers = [];
         },
