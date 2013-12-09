@@ -37,8 +37,11 @@
     border-bottom: 1px dashed transparent;
     border-right: 1px dashed transparent;
 }
+
 .db-grid-cell-selected {
     background-color: #fff;
+}
+.db-grid-bordered .db-grid-cell-selected {
     border-bottom-color: #fff;
     border-right-color: #fff;
     margin-top: -1px;
@@ -56,6 +59,11 @@
     position: absolute;
     background-color: #fffddc;
     box-shadow: 0 0 4px #999;
+    -webkit-transition: all 0.2s ease-out;
+    -moz-transition: all 0.2s ease-out;
+    -ms-transition: all 0.2s ease-out;
+    -o-transition: all 0.2s ease-out;
+    transition: all 0.2s ease-out;
 }
 .db-block-resizer {
     background-color: #dda;
