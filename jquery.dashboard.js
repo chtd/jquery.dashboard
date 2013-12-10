@@ -45,10 +45,10 @@
 
 
     function Cell(options) {
-        this.column = options.col;
-        this.row = options.row;
-        this.width = options.width;
-        this.height = options.height;
+        this.column = options.col;  // column number
+        this.row = options.row;  // row number
+        this.width = options.width;  // cell width in pixels
+        this.height = options.height;  // cell height in pixels
 
         this.cid = getNextCid();
         this._state = states.free;
@@ -72,7 +72,13 @@
             this.attachDropEvents();
         },
         destroy: function destroy() {
-            // TODO
+            var $el = this.$el;
+
+            this.$el = null;
+            this.el = null;
+
+            $el.off();
+            $el.remove();
         },
         setState: function setState(state) {
             this._state = state;
@@ -105,13 +111,13 @@
         attachDropEvents: function attachDropEvents() {
             var this_ = this;
 
-            this.$el.drop('start', function callOnDropStart(ev, dd){
+            this.$el.on('dropstart.dashboard.cell', function callOnDropStart(ev, dd){
                 return this_.onDropStart.apply(this_, arguments);
             })
-            .drop('end', function callOnDropEnd(ev, dd){
+            .on('dropend.dashboard.cell', function callOnDropEnd(ev, dd){
                 this_.onDropEnd.apply(this_, arguments);
             })
-            .drop(function( ev, dd ){
+            .on('drop.dashboard.cell', function(ev, dd){
                 this_.onDrop.apply(this_, arguments);
             });
         },
@@ -133,15 +139,16 @@
 
     // Grid container
     function Grid(options) {
-        this._numCols = options.numCols;
-        this._numRows = options.numRows;
-        this._blockWidth = options.blockWidth;
-        this._blockHeight = options.blockHeight;
-        this._width = options.numCols * options.blockWidth;
-        this._height = options.numRows * options.blockHeight;
-        this._top = options.top_;
-        this._left = options.left;
-        this._showGrid = options.showGrid;
+        var cell = options.cell,
+            size = options.size;
+
+        this._numCols = size[0];  // number of columns
+        this._numRows = size[1];  // number of rows
+        this._cellWidth = cell[0];  // cell width
+        this._cellHeight = cell[1];  // cell height
+        this._width = this._numCols * this._cellWidth;  // grid full width
+        this._height = this._numRows * this._cellHeight;  // grid full height
+        this._showGrid = options.showGrid;  // show grid or not
 
         this.init();
     }
@@ -166,8 +173,6 @@
             if (this._showGrid) {
                 el.className += ' db-grid-bordered';
             }
-            el.style.top = this._top + 'px';
-            el.style.left = this._left + 'px';
             el.style.width = this._width + 'px';
             el.style.height = this._height + 'px';
 
@@ -176,8 +181,8 @@
                     opts = {
                         col: j,
                         row: i,
-                        width: this._blockWidth,
-                        height: this._blockHeight
+                        width: this._cellWidth,
+                        height: this._cellHeight
                     };
                     cell = new Cell(opts);
                     this.children.push(cell);
@@ -188,7 +193,25 @@
             this.attachDragEvents();
         },
         destroy: function destroy() {
-            // TODO
+            var $el = this.$el,
+                children = this.children,
+                childrenByCid = this._childrenByCid;
+
+            this.children = null;
+            this._childrenByCid = null;
+            this.$el = null;
+            this.el = null;
+
+            $.each(children, function rmChild(idx, child) {
+                var cid = child.cid;
+
+                childrenByCid[cid] = null;
+
+                child.destroy();
+            });
+
+            $el.off();
+            $el.destroy();
         },
         render: function renderGrid() {
             var frag = document.createDocumentFragment(),
@@ -255,13 +278,13 @@
         attachDragEvents: function attachDragEvents() {
             var this_ = this;
 
-            this.$el.drag('start', function callOnDragStart(ev, dd) {
+            this.$el.on('dragstart', function callOnDragStart(ev, dd) {
                 return this_.onDragStart.apply(this_, arguments);
             })
-            .drag('end', function callOnDragEnd(ev, dd){
+            .on('dragend', function callOnDragEnd(ev, dd){
                 this_.onDragEnd.apply(this_, arguments);
             })
-            .drag(function callOnDrag(ev, dd){
+            .on('drag', function callOnDrag(ev, dd){
                 this_.onDrag.apply(this_, arguments);
             });
         },
@@ -271,7 +294,6 @@
         onDragEnd: function onDragEnd(ev, dd) {
             var cells = this.getSelected();
             this.makeBlock(cells);
-            //this.setOccupied(cells);
             this.setFree(cells);
             $(dd.proxy).remove();
         },
@@ -303,17 +325,17 @@
         this.bottom = options.bottom;
         this.right = options.right;
 
-        this.blockWidth = options.block.width;
-        this.blockHeight = options.block.height;
+        this.width = this.right - this.left + 1;
+        this.height = this.bottom - this.top_ + 1;
+
+        this.cellWidth = options.cell.width;
+        this.cellHeight = options.cell.height;
 
         this.gutterWidth = options.gutter.width;
         this.gutterHeight = options.gutter.height;
 
-        this.offsetTop = options.offset.top_;
-        this.offsetLeft = options.offset.left;
-
-        this.parentOffsetTop = options.offset.parentTop;
-        this.parentOffsetLeft = options.offset.parentLeft;
+        this.halfGutterWidth = Math.round(this.gutterWidth / 2);
+        this.halfGutterHeight = Math.round(this.gutterHeight / 2);
 
         this.numCols = options.grid.cols;
         this.numRows = options.grid.rows;
@@ -324,14 +346,16 @@
     $.extend(Block.prototype, {
         init: function initBlock() {
             var el = document.createElement('div'),
-                bw = this.blockWidth,
-                bh = this.blockHeight,
+                bw = this.cellWidth,
+                bh = this.cellHeight,
                 gw = this.gutterWidth,
                 gh = this.gutterHeight,
-                top_ = (bh * this.top_) + parseInt(gh / 2, 10) + this.offsetTop,
-                left = (bw * this.left) + parseInt(gw / 2, 10) + this.offsetLeft,
-                width = bw * (this.right - this.left + 1) - gw,
-                height = bh * (this.bottom - this.top_ + 1) - gh;
+                hgw = this.halfGutterWidth,
+                hgh = this.halfGutterHeight,
+                top_ = (bh * this.top_) + hgh,
+                left = (bw * this.left) + hgw,
+                width = bw * this.width - gw,
+                height = bh * this.height - gh;
 
             this.cid = getNextCid();
             this._resizeHandlers = [];
@@ -364,12 +388,16 @@
                 }).
                 on('mouseleave', function callOnMouseLeave() {
                     this_.onMouseLeave.apply(this_, arguments);
-                });
-
-            this.$el.drag('start', function callOnDragStart() {
-                    return this_.onDragStart.apply(this_, arguments);
-                }, {drop: false, relative: true}).
-                drag(function callOnDrag() {
+                }).
+                on('dragstart',
+                   {drop: false, relative: true},
+                        function callOnDragStart() {
+                            return this_.onDragStart.apply(this_, arguments);
+                }).
+                on('dragend', function callOnDragEnd() {
+                    this_.onDragEnd.apply(this_, arguments);
+                }).
+                on('drag', function callOnDrag() {
                     this_.onDrag.apply(this_, arguments);
                 });
             return this;
@@ -382,42 +410,75 @@
             this.makeResizeHandlers();
         },
         onMouseLeave: function onMouseLeave(event) {
-            this.removeResizeHandlers();
+            if (!this._resizePending) {
+                this.removeResizeHandlers();
+            }
         },
-        getLimits: function getLimits() {
+        getDragLimits: function getDragLimits() {
+            // limits in terms of cells
             return {
-                top: this.offsetTop,
-                left: this.offsetLeft,
-                bottom: this.offsetTop + this.numRows * this.blockHeight - this.$el.outerHeight(),
-                right: this.offsetLeft + this.numCols * this.blockWidth - this.$el.outerWidth()
+                top: 0,
+                left: 0,
+                bottom: this.numRows - this.height,
+                right: this.numCols - this.width
             };
+        },
+        getResizeLimits: function getResizeLimits() {
+            return {
+                w: [-this.left, this.width - 1],
+                n: [-this.top_, this.height - 1],
+                e: [-this.width + 1, this.numCols - this.left - this.width],
+                s: [-this.height + 1, this.numRows - this.top_ - this.height]
+            };
+
         },
         onDragStart: function onDragStart(ev, dd) {
             this.el.style.zIndex = zIndex++;
 
-            dd.limit = this.getLimits();
-            dd.isBlock = true;
+            dd.limit = this.getDragLimits();
+            dd.newPos = {
+                top: this.top_,
+                left: this.left
+            };
         },
         onDrag: function onDrag(ev, dd) {
-            var props = {
-                top: Math.round(Math.min(dd.limit.bottom, Math.max(dd.limit.top, dd.offsetY)) / this.blockHeight) * this.blockHeight + this.gutterHeight,
-                left: Math.round(Math.min(dd.limit.right, Math.max(dd.limit.left, dd.offsetX)) / this.blockWidth) * this.blockWidth + this.gutterWidth
-            };
+            var cellsX = Math.round(dd.deltaX / this.cellWidth),
+                cellsY = Math.round(dd.deltaY / this.cellHeight),
+                newTop = this.top_ + cellsY,
+                newLeft = this.left + cellsX,
+                newPos = dd.newPos,
+                limit = dd.limit,
+                updatedTop = newTop < 0 ? limit.top : newTop > limit.bottom ? limit.bottom : newTop,
+                updatedLeft = newLeft < 0 ? limit.left : newLeft > limit.right ? limit.right : newLeft,
+                props = {
+                    top: updatedTop * this.cellHeight + this.halfGutterHeight + 'px',
+                    left: updatedLeft * this.cellWidth + this.halfGutterWidth + 'px'
+                };
             this.$el.css(props);
-            this._elPos.top = props.top;
-            this._elPos.left = props.left;
+            newPos.top = updatedTop;
+            newPos.left = updatedLeft;
+        },
+        onDragEnd: function onDragEnd(ev, dd) {
+            var newPos = dd.newPos,
+                updatedTop = newPos.top,
+                updatedLeft = newPos.left;
+            this.top_ = updatedTop;
+            this.left = updatedLeft;
+            this.bottom = updatedTop + this.height;
+            this.right = updatedLeft + this.width;
         },
         makeResizeHandlers: function makeResizeHandlers() {
             var rh = this._resizeHandlers,
                 frag = document.createDocumentFragment(),
-                handlers = ['w', 'e', 'n', 's', 'nw', 'ne', 'sw', 'se'],
-                div;
+                handlers = ['w', 'e', 'n', 's', 'nw', 'ne', 'sw', 'se'];
 
             $.each(handlers, function mkHandler(k, place) {
-                div = document.createElement('div');
+                var div = document.createElement('div');
+
                 div.className += ' db-block-resizer';
                 div.className += ' db-block-resizer-' + place;
                 div.setAttribute('data-direction', place);
+
                 rh.push(div);
                 frag.appendChild(div);
             });
@@ -429,76 +490,103 @@
         },
         removeResizeHandlers: function removeResizeHandlers() {
             var el = this.el;
+
+            this.detachResizeHandlersEvents();
+
             $.each(this._resizeHandlers, function rmHandler(k, div) {
                 el.removeChild(div);
             });
+
             this._resizeHandlers = [];
+            this._removeHandlersOnResize = false;
         },
-        attachResizeHandlersEvents: function attachResizeHandler() {
-            var this_ = this;
-            this.$el.find('.db-block-resizer').drag('start', function callOnResizeStart() {
-                return this_.onResizeStart.apply(this_, arguments);
-            }, {drop: false}).
-            drag('end', function callOnDragEnd() {
+        attachResizeHandlersEvents: function attachResizeHandlers() {
+            var this_ = this,
+                $resizers = this.$el.find('.db-block-resizer');
+
+            $resizers.on('dragstart',
+                         {drop: false, relative: true},
+                         function callOnResizeStart() {
+                            return this_.onResizeStart.apply(this_, arguments);
+            }).
+            on('dragend', function callOnDragEnd() {
                 this_.onResizeEnd.apply(this_, arguments);
             }).
-            drag(function callOnResize() {
+            on('drag', function callOnResize() {
                 this_.onResize.apply(this_, arguments);
             });
+        },
+        detachResizeHandlersEvents: function detachResizeHandlers() {
+            this.$el.find('.db-block-resizer').off();
         },
         onResizeStart: function onResizeStart(ev, dd) {
             var target = ev.target,
                 direction = target.getAttribute('data-direction');
 
+            this._resizePending = true;
+
             dd.resizeDirection = direction;
+            dd.limit = this.getResizeLimits();
+            dd.newPos = {
+                top: this.top_,
+                left: this.left,
+                width: this.width,
+                height: this.height
+            };
         },
         onResize: function onResize(ev, dd) {
             var direction = dd.resizeDirection,
-                minWidth = this.blockWidth - this.gutterWidth,
-                minHeight = this.blockHeight - this.gutterHeight,
-                originalWidth = this._elPos.width,
-                originalHeight = this._elPos.height,
-                left = this._elPos.left,
-                top_ = this._elPos.top,
+                limit = dd.limit,
                 props = {},
-                limits = this.getLimits(),
-                blocksX = Math.round(dd.deltaX / this.blockWidth) * this.blockWidth,
-                blocksY = Math.round(dd.deltaY / this.blockHeight) * this.blockHeight;
+                cellsX = Math.round(dd.deltaX / this.cellWidth),
+                cellsY = Math.round(dd.deltaY / this.cellHeight),
+                newPos = dd.newPos,
+                newTop,
+                newLeft,
+                newWidth,
+                newHeight;
 
             if (direction.indexOf('e') > -1){
-                props.width = Math.max(minWidth, originalWidth + blocksX);
+                cellsX = cellsX < limit.e[0] ? limit.e[0] : cellsX > limit.e[1] ? limit.e[1] : cellsX;
+                newPos.width = this.width + cellsX;
+                props.width = newPos.width * this.cellWidth - this.gutterWidth + 'px';
             }
             if (direction.indexOf('s') > -1){
-                props.height = Math.max(minHeight, originalHeight + blocksY);
+                cellsY = cellsY < limit.s[0] ? limit.s[0] : cellsY > limit.s[1] ? limit.s[1] : cellsY;
+                newPos.height = this.height + cellsY;
+                props.height = newPos.height * this.cellHeight - this.gutterWidth + 'px';
             }
             if (direction.indexOf('w') > -1){
-                props.width = Math.max(minWidth, originalWidth - blocksX);
-                props.left = left + originalWidth - props.width;
-                if (props.left < limits.left) {
-                    props.left = limits.left;
-                }
+                cellsX = cellsX < limit.w[0] ? limit.w[0] : cellsX > limit.w[1] ? limit.w[1] : cellsX;
+
+                newPos.left = this.left + cellsX;
+                newPos.width = this.width - cellsX;
+                props.left = newPos.left * this.cellWidth + this.halfGutterWidth + 'px';
+                props.width = newPos.width * this.cellWidth - this.gutterWidth + 'px';
             }
             if (direction.indexOf('n') > -1){
-                props.height = Math.max(minHeight, originalHeight - blocksY);
-                props.top = top_ + originalHeight - props.height;
-                if (props.top < limits.top) {
-                    props.top = limits.top;
-                }
+                cellsY = cellsY < limit.n[0] ? limit.n[0] : cellsY > limit.n[1] ? limit.n[1] : cellsY;
+
+                newPos.top_ = this.top_ + cellsY;
+                newPos.height = this.height - cellsY;
+                props.top = newPos.top_ * this.cellHeight + this.halfGutterWidth + 'px';
+                props.height = newPos.height * this.cellHeight - this.gutterWidth + 'px';
             }
             this.$el.css(props);
         },
         onResizeEnd: function onResizeEnd(ev, dd) {
-            var $el = this.$el,
-                w = $el.width(),
-                h = $el.height(),
-                pos = $el.position();
+            var newPos = dd.newPos;
 
-            this._elPos = {
-                left: pos.left,
-                top: pos.top,
-                width: w,
-                height: h
-            };
+            this._resizePending = false;
+
+            this.left = newPos.left || this.left;
+            this.width = newPos.width || this.width;
+            this.top_ = newPos.top_ || this.top_;
+            this.height = newPos.height || this.height;
+
+            if (this._removeHandlersOnResize) {
+                this.removeResizeHandlers();
+            }
         },
         destroy: function destroyBlock() {
             this.detachHandlers();
@@ -529,18 +617,16 @@
                 gutter = this.options.gutter,
                 width = $el.width(),
                 height = $el.height(),
-                top_ = parseInt($el.css('padding-top'), 10),
-                left_ = parseInt($el.css('padding-left'), 10),
                 offset = $el.offset(),
                 numCols = grid[0],
                 numRows = grid[1],
-                blockWidth = parseInt(width / numCols, 10),
-                blockHeight = parseInt(height / numRows, 10);
+                cellWidth = parseInt(width / numCols, 10),
+                cellHeight = parseInt(height / numRows, 10);
 
-            if (blockWidth < 10) {
+            if (cellWidth < 10) {
                 $.error('Calculated block width is too small! Please decrease number of blocks in a row.');
             }
-            if (blockHeight < 10) {
+            if (cellHeight < 10) {
                 $.error('Calculated block height is too small! Please decrease number of blocks in a column.');
             }
 
@@ -549,12 +635,10 @@
 
             this._width = width;
             this._height = height;
-            this._top = top_;
-            this._left = left_;
             this._offset = offset;
 
-            this._blockWidth = blockWidth;
-            this._blockHeight = blockHeight;
+            this._cellWidth = cellWidth;
+            this._cellHeight = cellHeight;
 
             this._gutterWidth = gutter[0];
             this._gutterHeight = gutter[1];
@@ -564,12 +648,8 @@
         _makeGrid: function makeGrid() {
             var opts = {
                 showGrid: this.options.showGrid,
-                numCols: this._numCols,
-                numRows: this._numRows,
-                blockWidth: this._blockWidth,
-                blockHeight: this._blockHeight,
-                top_: this._top,
-                left: this._left
+                size: [this._numCols, this._numRows],
+                cell: [this._cellWidth, this._cellHeight]
             };
 
             this._grid = new Grid(opts);
@@ -653,11 +733,11 @@
             return this;
         },
         makeBlock: function makeBlock(event) {
-            var block = {width: this._blockWidth, height: this._blockHeight},
+            var cell = {width: this._cellWidth, height: this._cellHeight},
                 gutter = {width: this._gutterWidth, height: this._gutterHeight},
                 offset = {top_: this._top, left: this._left, parentTop: this._offset.top, parentLeft: this._offset.left},
                 grid = {cols: this._numCols, rows: this._numRows},
-                opts = $.extend({}, {block: block, gutter: gutter, offset: offset, grid: grid}, event.block),
+                opts = $.extend({}, {cell: cell, gutter: gutter, offset: offset, grid: grid}, event.block),
                 instance;
 
             instance = new Block(opts);
