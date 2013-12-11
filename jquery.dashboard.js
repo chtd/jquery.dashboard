@@ -416,9 +416,12 @@
             };
 
         },
+        bringToFront: function bringToFront() {
+            this.el.style.zIndex = zIndex++;
+        },
         onDragStart: function onDragStart(ev, dd) {
             this._moveResizePending = true;
-            this.el.style.zIndex = zIndex++;
+            this.bringToFront();
 
             dd.limit = this.getDragLimits();
             dd.newPos = {
@@ -535,6 +538,7 @@
                 direction = target.getAttribute('data-direction');
 
             this._moveResizePending = true;
+            this.bringToFront();
 
             dd.resizeDirection = direction;
             dd.limit = this.getResizeLimits();
