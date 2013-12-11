@@ -22,11 +22,14 @@
     // as this (slightly) quickens the resolution process and can be more efficiently
     // minified (especially when both are regularly referenced in your plugin).
 
-    var pluginName = 'dashboard',
+    var $window = $(window),
+        pluginName = 'dashboard',
         dataPlugin = 'plugin_' + pluginName,
         dataChild = 'child_' + pluginName,
         makeBlockEvent = 'makeblock.dashboard',
         changeBlockEvent = 'changeblock.dashboard',
+        resizeWinEvent = 'resize.dashboard',
+        resizedDashboardEvent = 'dashboard:resized',
         cid = 0,
         zIndex = 0,
         states = {
@@ -43,6 +46,25 @@
     function getNextCid() {
         return 'cn' + cid++;
     }
+
+    // http://stackoverflow.com/a/4298672
+    function debouncer(func, timeout) {
+        var timeoutID,
+            timeout = timeout || 200;
+
+        return function mkDebouncer() {
+            var scope = this,
+                args = arguments;
+            clearTimeout(timeoutID);
+            timeoutID = setTimeout(function debouncedCall() {
+                func.apply(scope, Array.prototype.slice.call(args));
+            }, timeout);
+        }
+    }
+
+    $window.on(resizeWinEvent, debouncer(function notifyOnResize(event) {
+        $window.trigger(resizedDashboardEvent);
+    }));
 
 
     function Cell(options) {
@@ -345,6 +367,28 @@
 
     $.extend(Block.prototype, {
         init: function initBlock() {
+
+            this.$el = $(this.el);
+
+            this.cid = getNextCid();
+            this._resizeHandlers = [];
+
+            this.el.className += ' db-block';
+            this.el.style.zIndex = zIndex++;
+
+            this.placeBlock();
+
+            if (this.editable) {
+                this.attachHandlers();
+            }
+        },
+        updatePos: function updatePos(cell) {
+            this.cellWidth = cell.width;
+            this.cellHeight = cell.height;
+
+            return this.placeBlock();
+        },
+        placeBlock: function placeBlock() {
             var el = this.el,
                 bw = this.cellWidth,
                 bh = this.cellHeight,
@@ -357,22 +401,12 @@
                 width = bw * this.width - gw,
                 height = bh * this.height - gh;
 
-            this.$el = $(el);
-
-            this.cid = getNextCid();
-            this._resizeHandlers = [];
-
-            this.el.className += ' db-block';
-
             this.el.style.top = top_ + 'px';
             this.el.style.left = left + 'px';
             this.el.style.width = width + 'px';
             this.el.style.height = height + 'px';
-            this.el.style.zIndex = zIndex++;
 
-            if (this.editable) {
-                this.attachHandlers();
-            }
+            return this;
         },
         attachHandlers: function attachHandlers() {
             var this_ = this;
@@ -680,7 +714,7 @@
             this.grid = new Grid(opts);
             this.$element.prepend(this.grid.render().el);
 
-            return this;
+            return this._attachGridHandlers();
         },
         _attachGridHandlers: function attachGridHandlers() {
             var this_ = this;
@@ -690,6 +724,12 @@
                     this_.onMakeBlock.apply(this_, arguments);
                 });
             }
+            return this;
+        },
+        _removeGrid: function removeGrid() {
+            this._detachGridHandlers();
+            this.grid.destroy();
+            this.grid = null;
             return this;
         },
         _detachGridHandlers: function detachGridHandlers() {
@@ -710,11 +750,29 @@
             });
             return this;
         },
+        onResize: function onResize() {
+            var cell = {};
+
+            this._calcDimensions();
+
+            cell.width = this._cellWidth;
+            cell.height = this._cellHeight;
+
+            if (this.options.editor) {
+                this._removeGrid();
+                this._makeGrid();
+            }
+
+            $.each(this.children, function updatePos(idx, child) {
+                child.updatePos(cell);
+            });
+        },
         init: function initPlugin() {
             // Place initialization logic here
             // You already have access to the DOM element and the options via the instance,
             // e.g., this.element and this.options
-            var opts = this.options,
+            var this_ = this,
+                opts = this.options,
                 editor = opts.editor,
                 grid = opts.grid,
                 gutter = opts.gutter;
@@ -732,11 +790,14 @@
 
             if (editor) {
                 this._makeGrid();
-                this._attachGridHandlers();
                 this._setBlocksEditable();
             }
 
             this.invalidate();
+
+            $window.on(resizedDashboardEvent + '.' + this.cid, function callOnResized() {
+                this_.onResize.apply(this_, arguments);
+            });
 
             $.drop({multi: true});
         },
@@ -744,7 +805,9 @@
             var el = this.element,
                 children = this.children;
 
-            this.grid.destroy();
+            $window.off(resizedDashboardEvent + '.' + this.cid);
+
+            this._removeGrid();
             this.$element.data(dataPlugin, null);
             this.element = null;
             this.options = null;
@@ -799,13 +862,10 @@
             this.options.editor = !this.options.editor;
             if (this.options.editor) {
                 this._makeGrid();
-                this._attachGridHandlers();
                 this._setBlocksEditable();
             } else {
                 this._unsetBlocksEditable();
-                this._detachGridHandlers();
-                this.grid.destroy();
-                this.grid = null;
+                this._removeGrid();
             }
             return this;
         },
