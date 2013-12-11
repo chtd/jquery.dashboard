@@ -26,6 +26,7 @@
     var pluginName = 'dashboard',
         dataPlugin = 'plugin_' + pluginName,
         dataChild = 'child_' + pluginName,
+        makeBlockEvent = 'makeblock.dashboard',
         cid = 0,
         zIndex = 0,
         states = {
@@ -248,11 +249,11 @@
             });
         },
         makeBlock: function makeBlock(cells) {
-            var top_,
+            var evt = new $.Event(makeBlockEvent),
+                top_,
                 left,
                 bottom,
-                right,
-                evt = new $.Event('makeblock.dashboard');
+                right;
 
             $.each(cells, function getPos(idx, cell) {
                 var pos = cell.getPos();
@@ -270,8 +271,8 @@
             evt.block = {
                 top_: top_,
                 left: left,
-                bottom: bottom,
-                right: right
+                width: right - left + 1,
+                height: bottom - top_ + 1
             };
             this.$el.trigger(evt);
         },
@@ -322,11 +323,8 @@
     function Block(options) {
         this.top_ = options.top_;
         this.left = options.left;
-        this.bottom = options.bottom;
-        this.right = options.right;
-
-        this.width = this.right - this.left + 1;
-        this.height = this.bottom - this.top_ + 1;
+        this.width = options.width;
+        this.height = options.height;
 
         this.cellWidth = options.cell.width;
         this.cellHeight = options.cell.height;
@@ -464,8 +462,6 @@
                 updatedLeft = newPos.left;
             this.top_ = updatedTop;
             this.left = updatedLeft;
-            this.bottom = updatedTop + this.height;
-            this.right = updatedLeft + this.width;
         },
         makeResizeHandlers: function makeResizeHandlers() {
             var rh = this._resizeHandlers,
@@ -652,14 +648,14 @@
                 cell: [this._cellWidth, this._cellHeight]
             };
 
-            this._grid = new Grid(opts);
-            this.$element.prepend(this._grid.render().el);
+            this.grid = new Grid(opts);
+            this.$element.prepend(this.grid.render().el);
 
             return this;
         },
         _attachHandlers: function attachHandlers() {
             var this_ = this;
-            this._grid.$el.on('makeblock.dashboard', function callMakeBlock() {
+            this.grid.$el.on(makeBlockEvent, function callMakeBlock() {
                 this_.makeBlock.apply(this_, arguments);
             });
         },
@@ -689,13 +685,13 @@
             var el = this.element,
                 children = this.children;
 
-            this._grid.destroy();
+            this.grid.destroy();
             this.$element.data(dataPlugin, null);
             this.element = null;
             this.options = null;
             this._defaults = null;
             this._children = null;
-            this._grid = null;
+            this.grid = null;
 
             $.each(children, function iterChildren(k, v) {
                 v.child.data(dataChild, null);
@@ -746,14 +742,14 @@
             this.$element.append(instance.el);
         },
         toggleGrid: function toggleGrid() {
-            this._grid.toggleGrid();
+            this.grid.toggleGrid();
             return this;
         },
         clear: function cleanDashboard() {
             $.each(this.children, function iterChildren(k, v) {
                 v.destroy();
             });
-            this._grid.clearGrid();
+            this.grid.clearGrid();
             this.children = [];
             return this;
         }
