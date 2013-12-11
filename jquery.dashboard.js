@@ -22,11 +22,11 @@
     // as this (slightly) quickens the resolution process and can be more efficiently
     // minified (especially when both are regularly referenced in your plugin).
 
-    // Create the defaults once
     var pluginName = 'dashboard',
         dataPlugin = 'plugin_' + pluginName,
         dataChild = 'child_' + pluginName,
         makeBlockEvent = 'makeblock.dashboard',
+        changeBlockEvent = 'changeblock.dashboard',
         cid = 0,
         zIndex = 0,
         states = {
@@ -35,7 +35,7 @@
             occupied: 2
         },
         defaults = {
-            showGrid: false,
+            editor: false,
             grid: [20, 15],
             gutter: [10, 10]
         };
@@ -149,7 +149,6 @@
         this._cellHeight = cell[1];  // cell height
         this._width = this._numCols * this._cellWidth;  // grid full width
         this._height = this._numRows * this._cellHeight;  // grid full height
-        this._showGrid = options.showGrid;  // show grid or not
 
         this.init();
     }
@@ -171,9 +170,8 @@
             this.$el = $(el);
 
             el.className += ' db-grid';
-            if (this._showGrid) {
-                el.className += ' db-grid-bordered';
-            }
+            el.className += ' db-grid-bordered';
+
             el.style.width = this._width + 'px';
             el.style.height = this._height + 'px';
 
@@ -212,7 +210,7 @@
             });
 
             $el.off();
-            $el.destroy();
+            $el.remove();
         },
         render: function renderGrid() {
             var frag = document.createDocumentFragment(),
@@ -340,6 +338,8 @@
 
         this.el = element || document.createElement('div');
 
+        this.editable = options.editable || false;
+
         this.init();
     }
 
@@ -370,32 +370,34 @@
             this.el.style.height = height + 'px';
             this.el.style.zIndex = zIndex++;
 
-            this.attachHandlers();
+            if (this.editable) {
+                this.attachHandlers();
+            }
         },
         attachHandlers: function attachHandlers() {
             var this_ = this;
             this.$el.
-                on('mouseenter', function callOnMouseEnter() {
+                on('mouseenter.dashboard.block', function callOnMouseEnter() {
                     this_.onMouseEnter.apply(this_, arguments);
                 }).
-                on('mouseleave', function callOnMouseLeave() {
+                on('mouseleave.dashboard.block', function callOnMouseLeave() {
                     this_.onMouseLeave.apply(this_, arguments);
                 }).
-                on('dragstart',
+                on('dragstart.dashboard.block',
                    {drop: false, relative: true},
                         function callOnDragStart() {
                             return this_.onDragStart.apply(this_, arguments);
                 }).
-                on('dragend', function callOnDragEnd() {
+                on('dragend.dashboard.block', function callOnDragEnd() {
                     this_.onDragEnd.apply(this_, arguments);
                 }).
-                on('drag', function callOnDrag() {
+                on('drag.dashboard.block', function callOnDrag() {
                     this_.onDrag.apply(this_, arguments);
                 });
             return this;
         },
         detachHandlers: function detachHandlers() {
-            this.$el.off();
+            this.$el.off('.dashboard.block');
             return this;
         },
         onMouseEnter: function onMouseEnter(event) {
@@ -578,6 +580,16 @@
                 this.removeResizeHandlers();
             }
         },
+        setEditable: function setEditable() {
+            this.editable = true;
+            this.attachHandlers();
+            return this;
+        },
+        unsetEditable: function unsetEditable() {
+            this.editable = false;
+            this.detachHandlers();
+            return this;
+        },
         destroy: function destroyBlock() {
             this.detachHandlers();
             this.$el.remove();
@@ -603,8 +615,9 @@
     Plugin.prototype = {
         _calcDimensions: function calcDimensions() {
             var $el = this.$element,
-                grid = this.options.grid,
-                gutter = this.options.gutter,
+                options = this.options,
+                grid = options.grid,
+                gutter = options.gutter,
                 width = $el.width(),
                 height = $el.height(),
                 offset = $el.offset(),
@@ -637,7 +650,6 @@
         },
         _makeGrid: function makeGrid() {
             var opts = {
-                showGrid: this.options.showGrid,
                 size: [this._numCols, this._numRows],
                 cell: [this._cellWidth, this._cellHeight]
             };
@@ -647,17 +659,40 @@
 
             return this;
         },
-        _attachHandlers: function attachHandlers() {
+        _attachGridHandlers: function attachGridHandlers() {
             var this_ = this;
-            this.grid.$el.on(makeBlockEvent, function callMakeBlock() {
-                this_.onMakeBlock.apply(this_, arguments);
+
+            if (this.grid) {
+                this.grid.$el.on(makeBlockEvent, function callMakeBlock() {
+                    this_.onMakeBlock.apply(this_, arguments);
+                });
+            }
+            return this;
+        },
+        _detachGridHandlers: function detachGridHandlers() {
+            if (this.grid) {
+                this.grid.$el.off(makeBlockEvent);
+            }
+            return this;
+        },
+        _setBlocksEditable: function setBlocksEditable() {
+            $.each(this.children, function setEditable(idx, child) {
+                child.setEditable();
             });
+            return this;
+        },
+        _unsetBlocksEditable: function unsetBlocksEditable() {
+            $.each(this.children, function unsetEditable(idx, child) {
+                child.unsetEditable();
+            });
+            return this;
         },
         init: function initPlugin() {
             // Place initialization logic here
             // You already have access to the DOM element and the options via the instance,
             // e.g., this.element and this.options
             var opts = this.options,
+                editor = opts.editor,
                 grid = opts.grid,
                 gutter = opts.gutter;
 
@@ -670,7 +705,14 @@
 
             this.children = [];
 
-            this.initialize();
+            this._calcDimensions();
+
+            if (editor) {
+                this._makeGrid();
+                this._attachGridHandlers();
+                this._setBlocksEditable();
+            }
+
             this.invalidate();
 
             $.drop({multi: true});
@@ -693,14 +735,6 @@
                 children[k] = null;
             });
             return el;
-        },
-        initialize: function initializePlugin() {
-
-            this._calcDimensions();
-            this._makeGrid();
-            this._attachHandlers();
-
-            return this;
         },
         invalidate: function invalidatePlugin() {
             var this_ = this,
@@ -726,25 +760,36 @@
             var cell = {width: this._cellWidth, height: this._cellHeight},
                 gutter = {width: this._gutterWidth, height: this._gutterHeight},
                 grid = {cols: this._numCols, rows: this._numRows},
-                opts = $.extend({}, {cell: cell, gutter: gutter, grid: grid}, block),
+                opts = $.extend({editable: this.options.editor},
+                            {cell: cell, gutter: gutter, grid: grid}, block),
                 instance;
 
             instance = new Block(element, opts);
 
             this.children.push(instance);
+
             if (element === undefined) {
                 this.$element.append(instance.el);
             }
         },
-        toggleGrid: function toggleGrid() {
-            this.grid.toggleGrid();
+        toggleEditor: function toggleGrid() {
+            this.options.editor = !this.options.editor;
+            if (this.options.editor) {
+                this._makeGrid();
+                this._attachGridHandlers();
+                this._setBlocksEditable();
+            } else {
+                this._unsetBlocksEditable();
+                this._detachGridHandlers();
+                this.grid.destroy();
+                this.grid = null;
+            }
             return this;
         },
         clear: function cleanDashboard() {
             $.each(this.children, function iterChildren(k, v) {
                 v.destroy();
             });
-            this.grid.clearGrid();
             this.children = [];
             return this;
         }

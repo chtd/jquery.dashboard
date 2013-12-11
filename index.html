@@ -55,11 +55,11 @@
             $(function onReady() {
                 var $db = $('.db-elements');
 
-                $db.dashboard({grid: [32, 18], showGrid: true});
+                $db.dashboard({grid: [32, 18], editor: false});
 
                 $('.db-menu').
                     delegate('.db-toggle-grid', 'click', function toggleGrid(event) {
-                        $db.dashboard('toggleGrid');
+                        $db.dashboard('toggleEditor');
                     }).
                     delegate('.db-clear-elements', 'click', function clearDashboard(event) {
                         $db.dashboard('clear');
