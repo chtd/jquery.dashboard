@@ -65,6 +65,14 @@
     -o-transition: all 0.2s ease-out;
     transition: all 0.2s ease-out;
 }
+.db-block-mover {
+    background-color: transparent;
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+}
 .db-block-resizer {
     background-color: #dda;
     position: absolute;

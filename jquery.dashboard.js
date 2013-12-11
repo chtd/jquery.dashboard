@@ -382,30 +382,20 @@
                 }).
                 on('mouseleave.dashboard.block', function callOnMouseLeave() {
                     this_.onMouseLeave.apply(this_, arguments);
-                }).
-                on('dragstart.dashboard.block',
-                   {drop: false, relative: true},
-                        function callOnDragStart() {
-                            return this_.onDragStart.apply(this_, arguments);
-                }).
-                on('dragend.dashboard.block', function callOnDragEnd() {
-                    this_.onDragEnd.apply(this_, arguments);
-                }).
-                on('drag.dashboard.block', function callOnDrag() {
-                    this_.onDrag.apply(this_, arguments);
                 });
             return this;
         },
         detachHandlers: function detachHandlers() {
             this.$el.off('.dashboard.block');
+            this.removeMoveResizeHandlers();
             return this;
         },
         onMouseEnter: function onMouseEnter(event) {
-            this.makeResizeHandlers();
+            this.makeMoveResizeHandlers();
         },
         onMouseLeave: function onMouseLeave(event) {
-            if (!this._resizePending) {
-                this.removeResizeHandlers();
+            if (!this._moveResizePending) {
+                this.removeMoveResizeHandlers();
             }
         },
         getDragLimits: function getDragLimits() {
@@ -427,6 +417,7 @@
 
         },
         onDragStart: function onDragStart(ev, dd) {
+            this._moveResizePending = true;
             this.el.style.zIndex = zIndex++;
 
             dd.limit = this.getDragLimits();
@@ -458,10 +449,12 @@
                 updatedLeft = newPos.left;
             this.top_ = updatedTop;
             this.left = updatedLeft;
+            this._moveResizePending = false;
         },
-        makeResizeHandlers: function makeResizeHandlers() {
+        makeMoveResizeHandlers: function makeMoveResizeHandlers() {
             var rh = this._resizeHandlers,
                 frag = document.createDocumentFragment(),
+                mover = document.createElement('div'),
                 handlers = ['w', 'e', 'n', 's', 'nw', 'ne', 'sw', 'se'];
 
             $.each(handlers, function mkHandler(k, place) {
@@ -474,15 +467,22 @@
                 rh.push(div);
                 frag.appendChild(div);
             });
+
+            mover.className += ' db-block-mover';
+            frag.appendChild(mover);
+            rh.push(mover);
+
             this.el.appendChild(frag);
 
             this.attachResizeHandlersEvents();
+            this.attachMoveHandlerEvents();
 
             return this;
         },
-        removeResizeHandlers: function removeResizeHandlers() {
+        removeMoveResizeHandlers: function removeMoveResizeHandlers() {
             var el = this.el;
 
+            this.detachMoveHandlerEvents();
             this.detachResizeHandlersEvents();
 
             $.each(this._resizeHandlers, function rmHandler(k, div) {
@@ -496,26 +496,45 @@
             var this_ = this,
                 $resizers = this.$el.find('.db-block-resizer');
 
-            $resizers.on('dragstart',
+            $resizers.on('dragstart.dashboard.block',
                          {drop: false, relative: true},
                          function callOnResizeStart() {
                             return this_.onResizeStart.apply(this_, arguments);
             }).
-            on('dragend', function callOnDragEnd() {
+            on('dragend.dashboard.block', function callOnDragEnd() {
                 this_.onResizeEnd.apply(this_, arguments);
             }).
-            on('drag', function callOnResize() {
+            on('drag.dashboard.block', function callOnResize() {
                 this_.onResize.apply(this_, arguments);
             });
         },
         detachResizeHandlersEvents: function detachResizeHandlers() {
-            this.$el.find('.db-block-resizer').off();
+            this.$el.find('.db-block-resizer').off('.dashboard.block');
+        },
+        attachMoveHandlerEvents: function attachMoveHandlerEvents() {
+            var this_ = this,
+                mover = this.$el.find('.db-block-mover');
+
+            mover.on('dragstart.dashboard.block',
+                   {drop: false, relative: true},
+                        function callOnDragStart() {
+                            return this_.onDragStart.apply(this_, arguments);
+                }).
+                on('dragend.dashboard.block', function callOnDragEnd() {
+                    this_.onDragEnd.apply(this_, arguments);
+                }).
+                on('drag.dashboard.block', function callOnDrag() {
+                    this_.onDrag.apply(this_, arguments);
+                });
+        },
+        detachMoveHandlerEvents: function detachMoveHandlerEvents() {
+            this.$el.find('.db-block-mover').off('.dashboard.block');
         },
         onResizeStart: function onResizeStart(ev, dd) {
             var target = ev.target,
                 direction = target.getAttribute('data-direction');
 
-            this._resizePending = true;
+            this._moveResizePending = true;
 
             dd.resizeDirection = direction;
             dd.limit = this.getResizeLimits();
@@ -569,7 +588,7 @@
         onResizeEnd: function onResizeEnd(ev, dd) {
             var newPos = dd.newPos;
 
-            this._resizePending = false;
+            this._moveResizePending = false;
 
             this.left = newPos.left || this.left;
             this.width = newPos.width || this.width;
