@@ -269,10 +269,10 @@
             });
 
             evt.block = {
-                top_: top_,
-                left: left,
-                width: right - left + 1,
-                height: bottom - top_ + 1
+                dbTop: top_,
+                dbLeft: left,
+                dbWidth: right - left + 1,
+                dbHeight: bottom - top_ + 1
             };
             this.$el.trigger(evt);
         },
@@ -320,11 +320,11 @@
 
 
     // Dashboard block
-    function Block(options) {
-        this.top_ = options.top_;
-        this.left = options.left;
-        this.width = options.width;
-        this.height = options.height;
+    function Block(element, options) {
+        this.top_ = parseInt(options.dbTop, 10);
+        this.left = parseInt(options.dbLeft, 10);
+        this.width = parseInt(options.dbWidth, 10);
+        this.height = parseInt(options.dbHeight, 10);
 
         this.cellWidth = options.cell.width;
         this.cellHeight = options.cell.height;
@@ -338,12 +338,14 @@
         this.numCols = options.grid.cols;
         this.numRows = options.grid.rows;
 
+        this.el = element || document.createElement('div');
+
         this.init();
     }
 
     $.extend(Block.prototype, {
         init: function initBlock() {
-            var el = document.createElement('div'),
+            var el = this.el,
                 bw = this.cellWidth,
                 bh = this.cellHeight,
                 gw = this.gutterWidth,
@@ -355,11 +357,10 @@
                 width = bw * this.width - gw,
                 height = bh * this.height - gh;
 
+            this.$el = $(el);
+
             this.cid = getNextCid();
             this._resizeHandlers = [];
-
-            this.el = el;
-            this.$el = $(el);
 
             this.el.className += ' db-block';
 
@@ -368,13 +369,6 @@
             this.el.style.width = width + 'px';
             this.el.style.height = height + 'px';
             this.el.style.zIndex = zIndex++;
-
-            this._elPos = {
-                width: width,
-                height: height,
-                top: top_,
-                left: left
-            };
 
             this.attachHandlers();
         },
@@ -656,7 +650,7 @@
         _attachHandlers: function attachHandlers() {
             var this_ = this;
             this.grid.$el.on(makeBlockEvent, function callMakeBlock() {
-                this_.makeBlock.apply(this_, arguments);
+                this_.onMakeBlock.apply(this_, arguments);
             });
         },
         init: function initPlugin() {
@@ -715,31 +709,32 @@
 
             children.each(function invalidateChild() {
                 var $child = $(this),
-                    data = $child.data(dataChild),
-                    cid,
-                    hash;
+                    data = $child.data();
 
-                if (data === undefined) {
-                    cid = getNextCid();
-                    this_[cid] = {child: $child};
-                    $child.data(dataChild, cid);
+                if ($.isNumeric(data.dbTop) && $.isNumeric(data.dbLeft) &&
+                        $.isNumeric(data.dbWidth) && $.isNumeric(data.dbHeight)) {
+                    this_.makeBlock(data, this);
                 }
             });
 
             return this;
         },
-        makeBlock: function makeBlock(event) {
+        onMakeBlock: function onMakeBlock(event) {
+            this.makeBlock(event.block);
+        },
+        makeBlock: function makeBlock(block, element) {
             var cell = {width: this._cellWidth, height: this._cellHeight},
                 gutter = {width: this._gutterWidth, height: this._gutterHeight},
-                offset = {top_: this._top, left: this._left, parentTop: this._offset.top, parentLeft: this._offset.left},
                 grid = {cols: this._numCols, rows: this._numRows},
-                opts = $.extend({}, {cell: cell, gutter: gutter, offset: offset, grid: grid}, event.block),
+                opts = $.extend({}, {cell: cell, gutter: gutter, grid: grid}, block),
                 instance;
 
-            instance = new Block(opts);
+            instance = new Block(element, opts);
 
             this.children.push(instance);
-            this.$element.append(instance.el);
+            if (element === undefined) {
+                this.$element.append(instance.el);
+            }
         },
         toggleGrid: function toggleGrid() {
             this.grid.toggleGrid();
