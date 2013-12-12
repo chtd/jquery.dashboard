@@ -458,6 +458,10 @@
 
             if (this.editable) {
                 this.attachHandlers();
+            } else {
+                if (this.stretch) {
+                    this.attachStretchHandler();
+                }
             }
         },
         getPos: function getPos() {
