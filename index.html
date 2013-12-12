@@ -32,9 +32,7 @@
             </div>
             <div class="db-elements">
                 <div data-db-cid="cn10" data-db-top="0" data-db-left="0" data-db-width="22" data-db-height="18"></div>
-                <div data-db-cid="cn11" data-db-top="0" data-db-left="22" data-db-width="10" data-db-height="6"></div>
                 <div data-db-cid="cn12" data-db-top="6" data-db-left="22" data-db-width="10" data-db-height="6" data-db-stretch="v"></div>
-                <div data-db-cid="cn13" data-db-top="12" data-db-left="22" data-db-width="10" data-db-height="6"></div>
             </div>
         </div>
 
@@ -55,7 +53,7 @@
             $(function onReady() {
                 var $db = $('.db-elements');
 
-                $db.dashboard({grid: [32, 18], editor: true});
+                $db.dashboard({grid: [32, 18], editor: false});
 
                 $('.db-menu').
                     delegate('.db-toggle-grid', 'click', function toggleGrid(event) {
