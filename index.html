@@ -53,6 +53,10 @@
             $(function onReady() {
                 var $db = $('.db-elements');
 
+                $db.delegate('div', 'block:created.dashboard block:changed.dashboard block:removed.dashboard', function log(event, jsoned) {
+                    console.log(event, jsoned);
+                });
+
                 $db.dashboard({grid: [32, 18], editor: false});
 
                 $('.db-menu').

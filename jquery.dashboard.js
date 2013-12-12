@@ -2,7 +2,7 @@
  *  Project: jquery.dashboard.js
  *  Description: jQuery dashboard
  *  Author: Yuri Egorov <yuri.egorov@chtd.ru>
- *  Copyright: Chtd LLC.
+ *  Copyright: Chtd LLC., http://chtd.ru
  *  License: MIT (?)
  */
 
@@ -219,7 +219,7 @@
         this._width = this._numCols * this._cellWidth;  // grid full width
         this._height = this._numRows * this._cellHeight;  // grid full height
 
-        this.evtPrefix = options.evtPrefix;
+        this.evtPrefix = options.evtPrefix;  // pub/sub events prefix
 
         this.init();
     }
@@ -864,7 +864,12 @@
     });
 
 
-    // The actual plugin constructor
+    /***
+     * jQuery Dashboard plugin
+     *
+     *
+     *
+     ***/
     function Plugin(element, options) {
 
         this.element = element;
@@ -983,9 +988,6 @@
             });
         },
         init: function initPlugin() {
-            // Place initialization logic here
-            // You already have access to the DOM element and the options via the instance,
-            // e.g., this.element and this.options
             var this_ = this,
                 opts = this.options,
                 editor = opts.editor,
@@ -1016,9 +1018,13 @@
             this._onBlockRemoveCaller = function callOnBlockRemove() {
                 this_._onBlockRemove.apply(this_, arguments);
             };
+            this._onBlockChangedCaller = function callOnBlockChanged() {
+                this_._onBlockChanged.apply(this_, arguments);
+            };
 
             pubSub(resizedDashboardEvent).on(this._onResizeCaller);
             pubSub(this.evtPrefix + rmBlockEvent).on(this._onBlockRemoveCaller);
+            pubSub(this.evtPrefix + changeBlockEvent).on(this._onBlockChangedCaller);
         },
         destroy: function destroyPlugin() {
             var el = this.element,
@@ -1078,17 +1084,18 @@
                     iconStretchF: po.iconStretchF,
                     iconDelete: po.iconDelete
                 },
-                instance;
+                block;
 
             $.extend(opts, {cell: cell, gutter: gutter, grid: grid}, block);
 
-            instance = new Block(element, opts);
+            block = new Block(element, opts);
 
-            this.children.push(instance);
+            this.children.push(block);
 
             if (element === undefined) {
-                this.$element.append(instance.el);
+                this.$element.append(block.el);
             }
+            block.$el.trigger('block:created.dashboard', block.toJSON());
         },
         _onBlockRemove: function onBlockRemove(blockCid) {
             var filtered,
@@ -1101,10 +1108,13 @@
                 return r;
             });
             if (block) {
-                block.$el.trigger('dashboard:remove');
+                block.$el.trigger('block:removed.dashboard', block.toJSON());
                 block.destroy();
                 this.children = filtered;
             }
+        },
+        _onBlockChanged: function onBlockChanged(block) {
+            block.$el.trigger('block:changed.dashboard', block.toJSON());
         },
         toggleEditor: function toggleGrid() {
             this.options.editor = !this.options.editor;
