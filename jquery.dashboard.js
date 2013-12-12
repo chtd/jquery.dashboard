@@ -26,7 +26,7 @@
         pluginName = 'dashboard',
         dataPlugin = 'plugin_' + pluginName,
         dataChild = 'child_' + pluginName,
-        makeBlockEvent = 'makeblock.dashboard',
+        makeBlockEvent = 'dashboard:makeblock',
         changeBlockEvent = 'changeblock.dashboard',
         resizeWinEvent = 'resize.dashboard',
         resizedDashboardEvent = 'dashboard:resized',
@@ -218,6 +218,8 @@
         this._width = this._numCols * this._cellWidth;  // grid full width
         this._height = this._numRows * this._cellHeight;  // grid full height
 
+        this.evtPrefix = options.evtPrefix;
+
         this.init();
     }
 
@@ -315,7 +317,7 @@
             });
         },
         makeBlock: function makeBlock(cells) {
-            var evt = new $.Event(makeBlockEvent),
+            var block,
                 top_,
                 left,
                 bottom,
@@ -334,13 +336,13 @@
                 }
             });
 
-            evt.block = {
+            block = {
                 dbTop: top_,
                 dbLeft: left,
                 dbWidth: right - left + 1,
                 dbHeight: bottom - top_ + 1
             };
-            this.$el.trigger(evt);
+            pubSub(this.evtPrefix + makeBlockEvent).trigger(block);
         },
         attachDragEvents: function attachDragEvents() {
             var this_ = this;
@@ -806,6 +808,7 @@
         },
         _makeGrid: function makeGrid() {
             var opts = {
+                evtPrefix: this.evtPrefix,
                 size: [this._numCols, this._numRows],
                 cell: [this._cellWidth, this._cellHeight]
             };
@@ -816,12 +819,14 @@
             return this._attachGridHandlers();
         },
         _attachGridHandlers: function attachGridHandlers() {
-            var this_ = this;
+            var this_ = this,
+                makeBlockCaller = function callMakeBlock() {
+                    this_.makeBlock.apply(this_, arguments);
+                };
 
             if (this.grid) {
-                this.grid.$el.on(makeBlockEvent, function callMakeBlock() {
-                    this_.onMakeBlock.apply(this_, arguments);
-                });
+                this._makeBlockCaller = makeBlockCaller;
+                pubSub(this.evtPrefix + makeBlockEvent).on(this._makeBlockCaller);
             }
             return this;
         },
@@ -833,7 +838,8 @@
         },
         _detachGridHandlers: function detachGridHandlers() {
             if (this.grid) {
-                this.grid.$el.off(makeBlockEvent);
+                pubSub(this.evtPrefix + makeBlockEvent).off(this._makeBlockCaller);
+                this._makeBlockCaller = null;
             }
             return this;
         },
@@ -892,7 +898,7 @@
                 this._setBlocksEditable();
             }
 
-            this.invalidate();
+            this._invalidate();
 
             this._onResizeCaller = function callOnResized() {
                 this_.onResize.apply(this_, arguments);
@@ -903,8 +909,6 @@
 
             pubSub(resizedDashboardEvent).on(this._onResizeCaller);
             pubSub(this.evtPrefix + rmBlockEvent).on(this._onBlockRemoveCaller);
-
-            $.drop({multi: true});
         },
         destroy: function destroyPlugin() {
             var el = this.element,
@@ -931,7 +935,7 @@
             });
             return el;
         },
-        invalidate: function invalidatePlugin() {
+        _invalidate: function invalidatePlugin() {
             var this_ = this,
                 $el = this.$element,
                 children = $el.children(this.options.childrenSelector);
@@ -947,9 +951,6 @@
             });
 
             return this;
-        },
-        onMakeBlock: function onMakeBlock(event) {
-            this.makeBlock(event.block);
         },
         makeBlock: function makeBlock(block, element) {
             var po = this.options,
@@ -989,6 +990,7 @@
                 return r;
             });
             if (block) {
+                block.$el.trigger('dashboard:remove');
                 block.destroy();
                 this.children = filtered;
             }
@@ -1005,8 +1007,9 @@
             return this;
         },
         clear: function cleanDashboard() {
-            $.each(this.children, function iterChildren(k, v) {
-                v.destroy();
+            $.each(this.children, function iterChildren(k, block) {
+                block.$el.trigger('dashboard:remove');
+                block.destroy();
             });
             this.children = [];
             return this;
@@ -1072,5 +1075,9 @@
             return returns.length === 0 ? this : (returns.length === 1 ? returns[0] : returns);
         }
     };
+
+
+    // FIXME required to use visual block builder
+    $.drop({multi: true});
 
 }(jQuery, window, document));
