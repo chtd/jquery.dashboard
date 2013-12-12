@@ -460,6 +460,21 @@
                 this.attachHandlers();
             }
         },
+        getPos: function getPos() {
+            return {
+                top: this.top_,
+                left: this.left,
+                width: this.width,
+                height: this.height
+            };
+        },
+        setPos: function setPos(t, l, w, h) {
+            this.top_ = t;
+            this.left = l;
+            this.width = w;
+            this.height = h;
+            return this;
+        },
         updatePos: function updatePos(cell) {
             this.cellWidth = cell.width;
             this.cellHeight = cell.height;
@@ -613,6 +628,7 @@
         },
         bringToFront: function bringToFront() {
             this.el.style.zIndex = zIndex++;
+            return this;
         },
         onDragStart: function onDragStart(ev, dd) {
             this._moveResizePending = true;
@@ -778,14 +794,53 @@
 
             pubSub(this.evtPrefix + changeBlockEvent).trigger(this);
         },
+        attachStretchHandler: function attachStretchHandlers() {
+            var this_ = this;
+            this.$el.
+                on('mouseenter.dashboard.block.stretch', function callOnMouseEnter() {
+                    this_.stretchOnMouseEnter.apply(this_, arguments);
+                }).
+                on('mouseleave.dashboard.block.stretch', function callOnMouseLeave() {
+                    this_.stretchOnMouseLeave.apply(this_, arguments);
+                });
+            return this;
+        },
+        detachStretchHandler: function detachStretchHandlers() {
+            this.$el.off('.dashboard.block.stretch');
+            return this;
+        },
+        stretchOnMouseEnter: function onMouseEnter(event) {
+            this._savedPlacement = this.getPos();
+
+            if (this.stretch === 'f') {
+                this.setPos(0, 0, this.numCols, this.numRows);
+            } else if (this.stretch === 'v') {
+                this.setPos(0, this.left, this.width, this.numRows);
+            } else if (this.stretch === 'h') {
+                this.setPos(this.top_, 0, this.numCols, this.height);
+            }
+            this.bringToFront().placeBlock();
+        },
+        stretchOnMouseLeave: function onMouseLeave(event) {
+            var saved = this._savedPlacement;
+            this._savedPlacement = null;
+            this.setPos(saved.top, saved.left, saved.width, saved.height);
+            this.placeBlock();
+        },
         setEditable: function setEditable() {
             this.editable = true;
             this.attachHandlers();
+            if (this.stretch) {
+                this.detachStretchHandler();
+            }
             return this;
         },
         unsetEditable: function unsetEditable() {
             this.editable = false;
             this.detachHandlers();
+            if (this.stretch) {
+                this.attachStretchHandler();
+            }
             return this;
         },
         destroy: function destroyBlock() {
