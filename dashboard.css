@@ -4,7 +4,7 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background-color: #fff;
+    background-color: rgba(0, 0, 0, .75);
 }
 
 .db-menu {
@@ -19,13 +19,13 @@
 }
 .db-elements {
     position: absolute;
-    left: 65px;
-    top: 0;
-    bottom: 0;
-    right: 0;
-    padding: 5px 5px;
+    left: 70px;
+    top: 5px;
+    bottom: 5px;
+    right: 5px;
+    padding: 0;
+    margin: 0;
     box-sizing: border-box;
-    background-color: rgba(0, 0, 0, .25);
 }
 .db-menu-item {
     color: #bbb;
