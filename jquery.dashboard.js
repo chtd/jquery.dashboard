@@ -27,9 +27,9 @@
         dataPlugin = 'plugin_' + pluginName,
         dataChild = 'child_' + pluginName,
         makeBlockEvent = 'dashboard:makeblock',
-        changeBlockEvent = 'changeblock.dashboard',
         resizeWinEvent = 'resize.dashboard',
         resizedDashboardEvent = 'dashboard:resized',
+        changeBlockEvent = 'block:change',
         rmBlockEvent = 'block:remove',
         cid = 0,
         zIndex = 0,
@@ -42,6 +42,7 @@
             childElement: 'div',
             childrenSelector: 'div',
             btnClass: 'btn btn-default btn-mini btn-xs',
+            primaryBtnClass: 'btn-primary',
             iconStretchH: 'fa fa-arrows-h fa-fw',
             iconStretchV: 'fa fa-arrows-v fa-fw',
             iconStretchF: 'fa fa-expand fa-fw',
@@ -419,16 +420,25 @@
 
         this.editable = options.editable || false;
 
+        this.stretch = options.dbStretch;
+
         this.btnClass = options.btnClass;
+        this.primaryBtnClass = options.primaryBtnClass;
 
         this.iconClasses = classes = [];
 
         $.each(['iconStretchH', 'iconStretchV', 'iconStretchF', 'iconDelete'], function bindClass(idx, className) {
-            var btnClass = deCase(className);
+            var btnClass = deCase(className),
+                stretch = (btnClass.indexOf('stretch') !== -1) ? btnClass[btnClass.length - 1] : null;
 
-            btnClass = btnClass.replace('icon', 'db-block') + ' db-block-btn ';
-            classes.push({btn: btnClass, icon: options[className]});
+            if (stretch) {
+                btnClass = 'db-block-stretch db-block-btn';
+            } else {
+                btnClass = btnClass.replace('icon', 'db-block') + ' db-block-btn ';
+            }
+            classes.push({btn: btnClass, icon: options[className], stretch: stretch});
         });
+
 
         this.init();
     }
@@ -520,6 +530,8 @@
         makeControls: function makeControls() {
             var controls = this._controls,
                 btnClass = this.btnClass,
+                primary = this.primaryBtnClass,
+                currentStretch = this.stretch,
                 frag = document.createDocumentFragment(),
                 mover = document.createElement('div'),
                 buttons = document.createElement('div'),
@@ -545,6 +557,12 @@
                 var btn = document.createElement('button'),
                     icn = document.createElement('i');
                 btn.className += ' ' + btnClass + ' ' + conf.btn;
+                if (conf.stretch) {
+                    btn.setAttribute('data-stretch', conf.stretch);
+                    if (conf.stretch === currentStretch) {
+                        btn.className += ' ' + primary;
+                    }
+                }
                 icn.className += ' ' + conf.icon;
                 btn.appendChild(icn);
                 buttons.appendChild(btn);
@@ -630,6 +648,8 @@
             this.top_ = updatedTop;
             this.left = updatedLeft;
             this._moveResizePending = false;
+
+            pubSub(this.evtPrefix + changeBlockEvent).trigger(this);
         },
         attachResizeHandlersEvents: function attachResizeHandlers() {
             var this_ = this,
@@ -719,21 +739,40 @@
             if (this._removeHandlersOnResize) {
                 this.removeResizeHandlers();
             }
+            pubSub(this.evtPrefix + changeBlockEvent).trigger(this);
         },
         attachButtonsEvents: function attachButtonsEvents() {
             var this_ = this,
-                delBtn = this.$el.find('.db-block-delete');
+                delBtn = this.$el.find('.db-block-delete'),
+                stretchBtns = this.$el.find('.db-block-stretch');
 
             delBtn.on('click.dashboard.block', function callOnDelete() {
                 this_.onDelete.apply(this_, arguments);
             });
+            stretchBtns.on('click.dashboard.block', function callOnSetStretch() {
+                this_.onSetStretch.apply(this_, arguments);
+            });
         },
         detachButtonsEvents: function detachButtonsEvents() {
-            this.$el.find('.db-block-btn').off('.dashboard.block');
+            this.$el.find('.db-block-btn,.db-block-stretch').off('.dashboard.block');
         },
         onDelete: function onDelete(event) {
             event.preventDefault();
             pubSub(this.evtPrefix + rmBlockEvent).trigger(this.cid);
+        },
+        onSetStretch: function onSetStretch(event) {
+            event.preventDefault();
+
+            var $btn = $(event.currentTarget),
+                primary = this.primaryBtnClass,
+                stretch = $btn.data('stretch');
+
+            this.stretch = stretch;
+
+            $btn.siblings().removeClass(primary);
+            $btn.addClass(primary);
+
+            pubSub(this.evtPrefix + changeBlockEvent).trigger(this);
         },
         setEditable: function setEditable() {
             this.editable = true;
@@ -962,6 +1001,7 @@
                     evtPrefix: this.evtPrefix,
                     blockElement: po.childElement,
                     btnClass: po.btnClass,
+                    primaryBtnClass: po.primaryBtnClass,
                     iconStretchV: po.iconStretchV,
                     iconStretchH: po.iconStretchH,
                     iconStretchF: po.iconStretchF,
