@@ -7,6 +7,8 @@
  *
  *  http://bitbucket.org/chtd/jquery.dashboard
  *
+ *  Version: 0.1.0
+ *
  *  Dependencies:
  *      - jQuery 1.8+
  *      - jquery.event.drag.js and jquery.event.drop.js
