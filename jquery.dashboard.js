@@ -1,26 +1,34 @@
-/*
+/***
  *  Project: jquery.dashboard.js
  *  Description: jQuery dashboard
  *  Author: Yuri Egorov <yuri.egorov@chtd.ru>
  *  Copyright: Chtd LLC., http://chtd.ru
  *  License: MIT (?)
- */
+ *
+ *  http://bitbucket.org/chtd/jquery.dashboard
+ *
+ *  Dependencies:
+ *      - jQuery 1.8+
+ *      - jquery.event.drag.js and jquery.event.drop.js
+ *        https://github.com/richardscarrott/jquery.threedubmedia (fork)
+ *        https://github.com/threedubmedia/jquery.threedubmedia (original)
+ *      - jquery.mousewheel.js
+ *        https://github.com/brandonaaron/jquery-mousewheel
+ *      - Bootstrap (optional, for buttons styles)
+ *        http://getbootstrap.com/
+ *      - FontAwesome (optional, for buttons icons)
+ *        http://fortawesome.github.io/Font-Awesome/
+ ***/
+
+// jQuery plugin definition based on
+// https://github.com/jquery-boilerplate/jquery-boilerplate/wiki/Extending-jQuery-Boilerplate
 
 
-// the semi-colon before function invocation is a safety net against concatenated
-// scripts and/or other plugins which may not be closed properly.
+// TODO docs
+
 ;(function ($, window, document, undefined) {
 
     'use strict';
-
-    // undefined is used here as the undefined global variable in ECMAScript 3 is
-    // mutable (ie. it can be changed by someone else). undefined isn't really being
-    // passed in so we can ensure the value of it is truly undefined. In ES5, undefined
-    // can no longer be modified.
-
-    // window is passed through as local variable rather than global
-    // as this (slightly) quickens the resolution process and can be more efficiently
-    // minified (especially when both are regularly referenced in your plugin).
 
     var $window = $(window),
         pluginName = 'dashboard',
@@ -1147,52 +1155,31 @@
         }
     };
 
-    // You don't need to change something below:
-    // A really lightweight plugin wrapper around the constructor,
-    // preventing against multiple instantiations and allowing any
-    // public function (ie. a function whose name doesn't start
-    // with an underscore) to be called via the jQuery plugin,
-    // e.g. $(element).dashboard('functionName', arg1, arg2)
+    /***
+     * dashboard plugin definfition
+     *
+     ***/
     $.fn[pluginName] = function (options) {
         var args = arguments;
 
-        // Is the first parameter an object (options), or was omitted,
-        // instantiate a new instance of the plugin.
         if (options === undefined || typeof options === 'object') {
             return this.each(function mkPlugin() {
 
-                // Only allow the plugin to be instantiated once,
-                // so we check that the element has no plugin instantiation yet
                 if (!$.data(this, dataPlugin)) {
-
-                    // if it has no instance, create a new one,
-                    // pass options to our plugin constructor,
-                    // and store the plugin instance
-                    // in the elements jQuery data object.
                     $.data(this, dataPlugin, new Plugin(this, options));
                 }
             });
 
-        // If the first parameter is a string and it doesn't start
-        // with an underscore or "contains" the `init`-function,
-        // treat this as a call to a public method.
         } else if (typeof options === 'string' && options[0] !== '_' && options !== 'init') {
 
-            // Cache the method call
-            // to make it possible
-            // to return a value
             var returns = [];
 
             this.each(function makeCall() {
                 var instance = $.data(this, dataPlugin),
                     result;
 
-                // Tests that there's already a plugin-instance
-                // and checks that the requested public method exists
                 if (instance instanceof Plugin && typeof instance[options] === 'function') {
 
-                    // Call the method of our plugin instance,
-                    // and pass it the supplied arguments.
                     result = instance[options].apply(instance, Array.prototype.slice.call(args, 1));
                 }
 
@@ -1200,9 +1187,6 @@
 
             });
 
-            // If the earlier cached method
-            // gives a value back return the value,
-            // otherwise return this to preserve chainability.
             return returns.length === 0 ? this : (returns.length === 1 ? returns[0] : returns);
         }
     };
