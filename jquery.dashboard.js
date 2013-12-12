@@ -466,10 +466,10 @@
         },
         getPos: function getPos() {
             return {
-                top: this.top_,
-                left: this.left,
-                width: this.width,
-                height: this.height
+                dbTop: this.top_,
+                dbLeft: this.left,
+                dbWidth: this.width,
+                dbHeight: this.height
             };
         },
         setPos: function setPos(t, l, w, h) {
@@ -828,7 +828,7 @@
         stretchOnMouseLeave: function onMouseLeave(event) {
             var saved = this._savedPlacement;
             this._savedPlacement = null;
-            this.setPos(saved.top, saved.left, saved.width, saved.height);
+            this.setPos(saved.dbTop, saved.dbLeft, saved.dbWidth, saved.dbHeight);
             this.placeBlock();
         },
         setEditable: function setEditable() {
@@ -846,6 +846,14 @@
                 this.attachStretchHandler();
             }
             return this;
+        },
+        toJSON: function toJSON() {
+            var p = this.getPos();
+
+            if (this.stretch) {
+                p.stretch = this.stretch;
+            }
+            return p;
         },
         destroy: function destroyBlock() {
             this.detachHandlers();
@@ -1109,7 +1117,17 @@
             }
             return this;
         },
+        toJSON: function toJSON() {
+            var jsoned = [];
+            $.each(this.children, function getJsoned(idx, block) {
+                jsoned.push(block.toJSON());
+            });
+            return jsoned;
+        },
         clear: function cleanDashboard() {
+            if (!this.options.editor) {
+                return this;
+            }
             $.each(this.children, function iterChildren(k, block) {
                 block.$el.trigger('dashboard:remove');
                 block.destroy();
