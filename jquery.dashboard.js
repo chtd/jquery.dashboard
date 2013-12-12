@@ -30,6 +30,7 @@
         changeBlockEvent = 'changeblock.dashboard',
         resizeWinEvent = 'resize.dashboard',
         resizedDashboardEvent = 'dashboard:resized',
+        rmBlockEvent = 'block:remove',
         cid = 0,
         zIndex = 0,
         states = {
@@ -38,19 +39,48 @@
             occupied: 2
         },
         defaults = {
+            childElement: 'div',
+            childrenSelector: 'div',
+            btnClass: 'btn btn-default btn-mini btn-xs',
+            iconStretchH: 'fa fa-arrows-h fa-fw',
+            iconStretchV: 'fa fa-arrows-v fa-fw',
+            iconStretchF: 'fa fa-expand fa-fw',
+            iconDelete: 'fa fa-trash-o fa-fw',
             editor: false,
             grid: [20, 15],
             gutter: [10, 10]
-        };
+        },
+        topics = {};  // pub/sub container
 
-    function getNextCid() {
-        return 'cn' + cid++;
+
+    function getNextCid(prefix) {
+        return (prefix || 'cn') + cid++;
     }
+
+    // http://api.jquery.com/jQuery.Callbacks/
+    function pubSub(id) {
+        var topic = id && topics[id],
+            callbacks,
+            method;
+
+        if (!topic) {
+            callbacks = $.Callbacks();
+            topic = {
+                trigger: callbacks.fire,
+                on: callbacks.add,
+                off: callbacks.remove
+            };
+            if (id) {
+                topics[id] = topic;
+            }
+        }
+        return topic;
+    };
 
     // http://stackoverflow.com/a/4298672
     function debouncer(func, timeout) {
         var timeoutID,
-            timeout = timeout || 200;
+            timeout = timeout || 150;
 
         return function mkDebouncer() {
             var scope = this,
@@ -62,11 +92,22 @@
         }
     }
 
+
     $window.on(resizeWinEvent, debouncer(function notifyOnResize(event) {
-        $window.trigger(resizedDashboardEvent);
+        pubSub(resizedDashboardEvent).trigger();
     }));
 
+    // http://stackoverflow.com/a/16640725
+    function deCase(s) {
+        return s.replace(/[A-Z]/g, function(a) {return '-' + a.toLowerCase()});
+    }
 
+    /***
+     * Cell constructor
+     *
+     *
+     *
+     ***/
     function Cell(options) {
         this.column = options.col;  // column number
         this.row = options.row;  // row number
@@ -160,7 +201,12 @@
     });
 
 
-    // Grid container
+    /***
+     * Grid container constructor
+     *
+     *
+     *
+     ***/
     function Grid(options) {
         var cell = options.cell,
             size = options.size;
@@ -339,8 +385,17 @@
     });
 
 
-    // Dashboard block
+    /***
+     * Dashboard block constructor
+     *
+     *
+     *
+     ***/
     function Block(element, options) {
+        var classes;
+
+        this.evtPrefix = options.evtPrefix;
+
         this.top_ = parseInt(options.dbTop, 10);
         this.left = parseInt(options.dbLeft, 10);
         this.width = parseInt(options.dbWidth, 10);
@@ -358,9 +413,20 @@
         this.numCols = options.grid.cols;
         this.numRows = options.grid.rows;
 
-        this.el = element || document.createElement('div');
+        this.el = element || document.createElement(options.blockElement);
 
         this.editable = options.editable || false;
+
+        this.btnClass = options.btnClass;
+
+        this.iconClasses = classes = [];
+
+        $.each(['iconStretchH', 'iconStretchV', 'iconStretchF', 'iconDelete'], function bindClass(idx, className) {
+            var btnClass = deCase(className);
+
+            btnClass = btnClass.replace('icon', 'db-block') + ' db-block-btn ';
+            classes.push({btn: btnClass, icon: options[className]});
+        });
 
         this.init();
     }
@@ -371,7 +437,7 @@
             this.$el = $(this.el);
 
             this.cid = getNextCid();
-            this._resizeHandlers = [];
+            this._controls = [];
 
             this.el.className += ' db-block';
             this.el.style.zIndex = zIndex++;
@@ -421,15 +487,15 @@
         },
         detachHandlers: function detachHandlers() {
             this.$el.off('.dashboard.block');
-            this.removeMoveResizeHandlers();
+            this.removeControls();
             return this;
         },
         onMouseEnter: function onMouseEnter(event) {
-            this.makeMoveResizeHandlers();
+            this.makeControls();
         },
         onMouseLeave: function onMouseLeave(event) {
             if (!this._moveResizePending) {
-                this.removeMoveResizeHandlers();
+                this.removeControls();
             }
         },
         getDragLimits: function getDragLimits() {
@@ -448,7 +514,82 @@
                 e: [-this.width + 1, this.numCols - this.left - this.width],
                 s: [-this.height + 1, this.numRows - this.top_ - this.height]
             };
+        },
+        makeControls: function makeControls() {
+            var controls = this._controls,
+                btnClass = this.btnClass,
+                frag = document.createDocumentFragment(),
+                mover = document.createElement('div'),
+                buttons = document.createElement('div'),
+                handlers = ['w', 'e', 'n', 's', 'nw', 'ne', 'sw', 'se'];
 
+            $.each(handlers, function mkHandler(k, place) {
+                var div = document.createElement('div');
+
+                div.className += ' db-block-resizer';
+                div.className += ' db-block-resizer-' + place;
+                div.setAttribute('data-direction', place);
+
+                controls.push(div);
+                frag.appendChild(div);
+            });
+
+            mover.className += ' db-block-mover';
+            frag.appendChild(mover);
+            controls.push(mover);
+
+            buttons.className += ' db-block-controls';
+            $.each(this.iconClasses, function mkBtn(idx, conf) {
+                var btn = document.createElement('button'),
+                    icn = document.createElement('i');
+                btn.className += ' ' + btnClass + ' ' + conf.btn;
+                icn.className += ' ' + conf.icon;
+                btn.appendChild(icn);
+                buttons.appendChild(btn);
+            });
+            frag.appendChild(buttons);
+            controls.push(buttons);
+
+            this.el.appendChild(frag);
+
+            this.attachResizeHandlersEvents();
+            this.attachMoveHandlerEvents();
+            this.attachButtonsEvents();
+
+            return this;
+        },
+        removeControls: function removeControls() {
+            var el = this.el;
+
+            this.detachButtonsEvents();
+            this.detachMoveHandlerEvents();
+            this.detachResizeHandlersEvents();
+
+            $.each(this._controls, function rmControl(k, div) {
+                el.removeChild(div);
+            });
+
+            this._controls = [];
+            this._removeHandlersOnResize = false;
+        },
+        attachMoveHandlerEvents: function attachMoveHandlerEvents() {
+            var this_ = this,
+                mover = this.$el.find('.db-block-mover');
+
+            mover.on('dragstart.dashboard.block',
+                   {drop: false, relative: true},
+                        function callOnDragStart() {
+                            return this_.onDragStart.apply(this_, arguments);
+                }).
+                on('dragend.dashboard.block', function callOnDragEnd() {
+                    this_.onDragEnd.apply(this_, arguments);
+                }).
+                on('drag.dashboard.block', function callOnDrag() {
+                    this_.onDrag.apply(this_, arguments);
+                });
+        },
+        detachMoveHandlerEvents: function detachMoveHandlerEvents() {
+            this.$el.find('.db-block-mover').off('.dashboard.block');
         },
         bringToFront: function bringToFront() {
             this.el.style.zIndex = zIndex++;
@@ -488,47 +629,6 @@
             this.left = updatedLeft;
             this._moveResizePending = false;
         },
-        makeMoveResizeHandlers: function makeMoveResizeHandlers() {
-            var rh = this._resizeHandlers,
-                frag = document.createDocumentFragment(),
-                mover = document.createElement('div'),
-                handlers = ['w', 'e', 'n', 's', 'nw', 'ne', 'sw', 'se'];
-
-            $.each(handlers, function mkHandler(k, place) {
-                var div = document.createElement('div');
-
-                div.className += ' db-block-resizer';
-                div.className += ' db-block-resizer-' + place;
-                div.setAttribute('data-direction', place);
-
-                rh.push(div);
-                frag.appendChild(div);
-            });
-
-            mover.className += ' db-block-mover';
-            frag.appendChild(mover);
-            rh.push(mover);
-
-            this.el.appendChild(frag);
-
-            this.attachResizeHandlersEvents();
-            this.attachMoveHandlerEvents();
-
-            return this;
-        },
-        removeMoveResizeHandlers: function removeMoveResizeHandlers() {
-            var el = this.el;
-
-            this.detachMoveHandlerEvents();
-            this.detachResizeHandlersEvents();
-
-            $.each(this._resizeHandlers, function rmHandler(k, div) {
-                el.removeChild(div);
-            });
-
-            this._resizeHandlers = [];
-            this._removeHandlersOnResize = false;
-        },
         attachResizeHandlersEvents: function attachResizeHandlers() {
             var this_ = this,
                 $resizers = this.$el.find('.db-block-resizer');
@@ -547,25 +647,6 @@
         },
         detachResizeHandlersEvents: function detachResizeHandlers() {
             this.$el.find('.db-block-resizer').off('.dashboard.block');
-        },
-        attachMoveHandlerEvents: function attachMoveHandlerEvents() {
-            var this_ = this,
-                mover = this.$el.find('.db-block-mover');
-
-            mover.on('dragstart.dashboard.block',
-                   {drop: false, relative: true},
-                        function callOnDragStart() {
-                            return this_.onDragStart.apply(this_, arguments);
-                }).
-                on('dragend.dashboard.block', function callOnDragEnd() {
-                    this_.onDragEnd.apply(this_, arguments);
-                }).
-                on('drag.dashboard.block', function callOnDrag() {
-                    this_.onDrag.apply(this_, arguments);
-                });
-        },
-        detachMoveHandlerEvents: function detachMoveHandlerEvents() {
-            this.$el.find('.db-block-mover').off('.dashboard.block');
         },
         onResizeStart: function onResizeStart(ev, dd) {
             var target = ev.target,
@@ -637,6 +718,21 @@
                 this.removeResizeHandlers();
             }
         },
+        attachButtonsEvents: function attachButtonsEvents() {
+            var this_ = this,
+                delBtn = this.$el.find('.db-block-delete');
+
+            delBtn.on('click.dashboard.block', function callOnDelete() {
+                this_.onDelete.apply(this_, arguments);
+            });
+        },
+        detachButtonsEvents: function detachButtonsEvents() {
+            this.$el.find('.db-block-btn').off('.dashboard.block');
+        },
+        onDelete: function onDelete(event) {
+            event.preventDefault();
+            pubSub(this.evtPrefix + rmBlockEvent).trigger(this.cid);
+        },
         setEditable: function setEditable() {
             this.editable = true;
             this.attachHandlers();
@@ -665,6 +761,9 @@
 
         this._defaults = defaults;
         this._name = pluginName;
+
+        this.cid = getNextCid('db');
+        this.evtPrefix = 'dashboard:' + this.cid + ':';
 
         this.init();
     }
@@ -795,9 +894,15 @@
 
             this.invalidate();
 
-            $window.on(resizedDashboardEvent + '.' + this.cid, function callOnResized() {
+            this._onResizeCaller = function callOnResized() {
                 this_.onResize.apply(this_, arguments);
-            });
+            };
+            this._onBlockRemoveCaller = function callOnBlockRemove() {
+                this_._onBlockRemove.apply(this_, arguments);
+            };
+
+            pubSub(resizedDashboardEvent).on(this._onResizeCaller);
+            pubSub(this.evtPrefix + rmBlockEvent).on(this._onBlockRemoveCaller);
 
             $.drop({multi: true});
         },
@@ -805,7 +910,11 @@
             var el = this.element,
                 children = this.children;
 
-            $window.off(resizedDashboardEvent + '.' + this.cid);
+            pubSub(resizedDashboardEvent).off(this._onResizeCaller);
+            pubSub(this.evtPrefix + rmBlockEvent).off(this._onBlockRemoveCaller);
+
+            this._onResizeCaller = null;
+            this._onBlockRemoveCaller = null;
 
             this._removeGrid();
             this.$element.data(dataPlugin, null);
@@ -825,7 +934,7 @@
         invalidate: function invalidatePlugin() {
             var this_ = this,
                 $el = this.$element,
-                children = $el.children();
+                children = $el.children(this.options.childrenSelector);
 
             children.each(function invalidateChild() {
                 var $child = $(this),
@@ -843,12 +952,23 @@
             this.makeBlock(event.block);
         },
         makeBlock: function makeBlock(block, element) {
-            var cell = {width: this._cellWidth, height: this._cellHeight},
+            var po = this.options,
+                cell = {width: this._cellWidth, height: this._cellHeight},
                 gutter = {width: this._gutterWidth, height: this._gutterHeight},
                 grid = {cols: this._numCols, rows: this._numRows},
-                opts = $.extend({editable: this.options.editor},
-                            {cell: cell, gutter: gutter, grid: grid}, block),
+                opts = {
+                    editable: po.editor,
+                    evtPrefix: this.evtPrefix,
+                    blockElement: po.childElement,
+                    btnClass: po.btnClass,
+                    iconStretchV: po.iconStretchV,
+                    iconStretchH: po.iconStretchH,
+                    iconStretchF: po.iconStretchF,
+                    iconDelete: po.iconDelete
+                },
                 instance;
+
+            $.extend(opts, {cell: cell, gutter: gutter, grid: grid}, block);
 
             instance = new Block(element, opts);
 
@@ -856,6 +976,21 @@
 
             if (element === undefined) {
                 this.$element.append(instance.el);
+            }
+        },
+        _onBlockRemove: function onBlockRemove(blockCid) {
+            var filtered,
+                block;
+            filtered = $.grep(this.children, function filterChildren(child) {
+                var r = child.cid && child.cid !== blockCid;
+                if (!r) {
+                    block = child;
+                }
+                return r;
+            });
+            if (block) {
+                block.destroy();
+                this.children = filtered;
             }
         },
         toggleEditor: function toggleGrid() {

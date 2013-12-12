@@ -73,6 +73,11 @@
     right: 8px;
     bottom: 8px;
 }
+.db-block-controls {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+}
 .db-block-resizer {
     background-color: #dda;
     position: absolute;
