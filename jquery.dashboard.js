@@ -767,10 +767,14 @@
                 primary = this.primaryBtnClass,
                 stretch = $btn.data('stretch');
 
-            this.stretch = stretch;
+            this.stretch = stretch === this.stretch ? null : stretch;
 
             $btn.siblings().removeClass(primary);
-            $btn.addClass(primary);
+            if (this.stretch) {
+                $btn.addClass(primary);
+            } else {
+                $btn.removeClass(primary);
+            }
 
             pubSub(this.evtPrefix + changeBlockEvent).trigger(this);
         },
